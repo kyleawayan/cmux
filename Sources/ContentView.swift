@@ -8678,6 +8678,7 @@ struct VerticalTabsSidebar: View {
                                     index: index,
                                     isActive: tabManager.selectedTabId == tab.id,
                                     compact: false,
+                                    topRail: false,
                                     workspaceShortcutDigit: WorkspaceShortcutMapper.digitForWorkspace(
                                         at: index,
                                         workspaceCount: workspaceCount
@@ -8845,7 +8846,7 @@ struct HorizontalTabBar: View {
     @AppStorage(KeyboardShortcutSettings.Action.selectWorkspaceByNumber.defaultsKey)
     private var selectWorkspaceByNumberShortcutData = Data()
 
-    private let tabColumnSpacing: CGFloat = 2
+    private let tabColumnSpacing: CGFloat = 6
 
     private var showsSidebarNotificationMessage: Bool {
         SidebarWorkspaceDetailSettings.resolvedNotificationMessageVisibility(
@@ -8884,6 +8885,7 @@ struct HorizontalTabBar: View {
                             index: index,
                             isActive: tabManager.selectedTabId == tab.id,
                             compact: false,
+                            topRail: true,
                             workspaceShortcutDigit: WorkspaceShortcutMapper.digitForWorkspace(
                                 at: index,
                                 workspaceCount: workspaceCount
@@ -8918,7 +8920,6 @@ struct HorizontalTabBar: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
                                 .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                                .padding(.horizontal, 6)
                         )
                     }
                 }
@@ -11209,6 +11210,7 @@ private struct TabItemView: View, Equatable {
         lhs.index == rhs.index &&
         lhs.isActive == rhs.isActive &&
         lhs.compact == rhs.compact &&
+        lhs.topRail == rhs.topRail &&
         lhs.workspaceShortcutDigit == rhs.workspaceShortcutDigit &&
         lhs.workspaceShortcutModifierSymbol == rhs.workspaceShortcutModifierSymbol &&
         lhs.canCloseWorkspace == rhs.canCloseWorkspace &&
@@ -11232,6 +11234,7 @@ private struct TabItemView: View, Equatable {
     let index: Int
     let isActive: Bool
     let compact: Bool
+    let topRail: Bool
     let workspaceShortcutDigit: Int?
     let workspaceShortcutModifierSymbol: String
     let canCloseWorkspace: Bool
@@ -11760,13 +11763,14 @@ private struct TabItemView: View, Equatable {
             }
             } // end if !compact
         }
+        .frame(maxHeight: topRail ? .infinity : nil, alignment: .topLeading)
+        .padding(.top, topRail ? 2 : 0)
         .animation(.easeInOut(duration: 0.2), value: tab.logEntries.count)
         .animation(.easeInOut(duration: 0.2), value: tab.progress != nil)
         .animation(.easeInOut(duration: 0.2), value: tab.metadataBlocks.count)
         .padding(.horizontal, compact ? 6 : 10)
         .padding(.vertical, compact ? 4 : 8)
         .frame(width: compact ? 140 : nil)
-        .frame(maxHeight: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(backgroundColor)
@@ -11774,18 +11778,27 @@ private struct TabItemView: View, Equatable {
                     RoundedRectangle(cornerRadius: 6)
                         .strokeBorder(activeBorderColor, lineWidth: activeBorderLineWidth)
                 }
-                .overlay(alignment: .leading) {
+                .overlay(alignment: topRail ? .top : .leading) {
                     if showsLeadingRail {
-                        Capsule(style: .continuous)
-                            .fill(railColor)
-                            .frame(width: 3)
-                            .padding(.leading, 4)
-                            .padding(.vertical, 5)
-                            .offset(x: -1)
+                        if topRail {
+                            Capsule(style: .continuous)
+                                .fill(railColor)
+                                .frame(height: 3)
+                                .padding(.horizontal, 5)
+                                .padding(.top, 4)
+                                .offset(y: -1)
+                        } else {
+                            Capsule(style: .continuous)
+                                .fill(railColor)
+                                .frame(width: 3)
+                                .padding(.leading, 4)
+                                .padding(.vertical, 5)
+                                .offset(x: -1)
+                        }
                     }
                 }
         )
-        .padding(.horizontal, 6)
+        .padding(.horizontal, topRail ? 0 : 6)
         .background {
             GeometryReader { proxy in
                 Color.clear
