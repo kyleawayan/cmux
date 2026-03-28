@@ -2648,6 +2648,12 @@ struct ContentView: View {
         TabBarPosition(rawValue: tabBarPositionRaw) ?? .left
     }
 
+    /// Whether the sidebar is visible AND occupying space on the left side of the window.
+    /// False when sidebar is hidden or when tab bar position is bottom.
+    private var isSidebarVisibleOnLeft: Bool {
+        sidebarState.isVisible && resolvedTabBarPosition == .left
+    }
+
     private var sidebarView: some View {
         VerticalTabsSidebar(
             updateViewModel: updateViewModel,
@@ -2668,8 +2674,9 @@ struct ContentView: View {
             selectedTabIds: $selectedTabIds,
             lastSidebarSelectionIndex: $lastSidebarSelectionIndex
         )
-        .frame(height: tabBarHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: tabBarHeight)
+        .clipped()
     }
 
     /// Space at top of content area for the titlebar. This must be at least the actual titlebar
@@ -2806,7 +2813,7 @@ struct ContentView: View {
                 .allowsHitTesting(false)
 
             HStack(spacing: 8) {
-                if isFullScreen && !sidebarState.isVisible {
+                if isFullScreen && !isSidebarVisibleOnLeft {
                     fullscreenControls
                 }
 
@@ -2827,7 +2834,7 @@ struct ContentView: View {
             }
             .frame(height: 28)
             .padding(.top, 2)
-            .padding(.leading, (isFullScreen && !sidebarState.isVisible) ? 8 : (sidebarState.isVisible ? 12 : titlebarLeadingInset + CGFloat(debugTitlebarLeadingExtra)))
+            .padding(.leading, (isFullScreen && !isSidebarVisibleOnLeft) ? 8 : (isSidebarVisibleOnLeft ? 12 : titlebarLeadingInset + CGFloat(debugTitlebarLeadingExtra)))
             .padding(.trailing, 8)
         }
         .frame(height: titlebarPadding)
@@ -2852,7 +2859,7 @@ struct ContentView: View {
     }
 
     private func syncTrafficLightInset() {
-        let inset: CGFloat = (isMinimalMode && !sidebarState.isVisible && !isFullScreen) ? 80 : 0
+        let inset: CGFloat = (isMinimalMode && !isSidebarVisibleOnLeft) ? 80 : 0
         for tab in tabManager.tabs {
             if tab.bonsplitController.configuration.appearance.tabBarLeadingInset != inset {
                 tab.bonsplitController.configuration.appearance.tabBarLeadingInset = inset
@@ -2973,40 +2980,30 @@ struct ContentView: View {
             }
 
         case .bottom:
-            if sidebarBlendMode == SidebarBlendModeOption.withinWindow.rawValue {
-                layout = AnyView(
-                    ZStack(alignment: .bottom) {
-                        terminalContentWithSidebarDropOverlay
-                            .padding(.bottom, sidebarState.isVisible ? tabBarHeight : 0)
-                        if sidebarState.isVisible {
-                            tabBarView
-                        }
+            // Bottom mode always uses VStack — no overlay mode needed since the
+            // bar auto-sizes to its content.
+            layout = AnyView(
+                VStack(spacing: 0) {
+                    terminalContentWithSidebarDropOverlay
+                    if sidebarState.isVisible {
+                        tabBarView
                     }
-                )
-            } else {
-                layout = AnyView(
-                    VStack(spacing: 0) {
-                        terminalContentWithSidebarDropOverlay
-                        if sidebarState.isVisible {
-                            tabBarView
-                        }
-                    }
-                )
-            }
+                }
+            )
         }
 
-        let resizerAlignment: Alignment = position == .left ? .leading : .bottom
         return AnyView(
             layout
-                .overlay(alignment: resizerAlignment) {
-                    if sidebarState.isVisible {
-                        if position == .left {
-                            sidebarResizerOverlay
-                                .zIndex(1000)
-                        } else {
-                            bottomBarResizerOverlay
-                                .zIndex(1000)
-                        }
+                .overlay(alignment: .leading) {
+                    if sidebarState.isVisible && position == .left {
+                        sidebarResizerOverlay
+                            .zIndex(1000)
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    if sidebarState.isVisible && position == .bottom {
+                        bottomBarResizerOverlay
+                            .zIndex(1000)
                     }
                 }
         )
@@ -10277,7 +10274,7 @@ struct HorizontalTabBar: View {
             SidebarBackdrop()
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: tabColumnSpacing) {
+                LazyHStack(alignment: .top, spacing: tabColumnSpacing) {
                     ForEach(Array(tabManager.tabs.enumerated()), id: \.element.id) { index, tab in
                         let selectedContextIds: Set<UUID> = selectedTabIds.contains(tab.id) ? selectedTabIds : [tab.id]
                         let remoteContextMenuTargets = tabManager.tabs.filter { workspace in
@@ -10289,7 +10286,7 @@ struct HorizontalTabBar: View {
                             tab: tab,
                             index: index,
                             isActive: tabManager.selectedTabId == tab.id,
-                            compact: true,
+                            compact: false,
                             workspaceShortcutDigit: WorkspaceShortcutMapper.digitForWorkspace(
                                 at: index,
                                 workspaceCount: workspaceCount
@@ -10320,12 +10317,24 @@ struct HorizontalTabBar: View {
                             allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected }
                         )
                         .equatable()
+                        .frame(width: 200)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                                .padding(.horizontal, 6)
+                        )
                     }
                 }
                 .padding(.horizontal, 6)
+                .padding(.vertical, 6)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.15))
+                .frame(height: 1)
+        }
     }
 }
 
@@ -13178,6 +13187,7 @@ private struct TabItemView: View, Equatable {
         .padding(.horizontal, compact ? 6 : 10)
         .padding(.vertical, compact ? 4 : 8)
         .frame(width: compact ? 140 : nil)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(backgroundColor)
