@@ -194,6 +194,32 @@ enum SidebarActiveTabIndicatorSettings {
     }
 }
 
+enum TabBarPosition: String, CaseIterable, Identifiable {
+    case left
+    case bottom
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .left:
+            return String(localized: "settings.tabBarPosition.left", defaultValue: "Left")
+        case .bottom:
+            return String(localized: "settings.tabBarPosition.bottom", defaultValue: "Bottom")
+        }
+    }
+}
+
+enum TabBarPositionSettings {
+    static let key = "tabBarPosition"
+    static let defaultPosition: TabBarPosition = .left
+
+    static func current(defaults: UserDefaults = .standard) -> TabBarPosition {
+        guard let raw = defaults.string(forKey: key) else { return defaultPosition }
+        return TabBarPosition(rawValue: raw) ?? defaultPosition
+    }
+}
+
 enum WorkspacePlacementSettings {
     static let placementKey = "newWorkspacePlacement"
     static let defaultPlacement: NewWorkspacePlacement = .afterCurrent

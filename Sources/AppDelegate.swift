@@ -4682,7 +4682,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                     sidebar: SessionSidebarSnapshot(
                         isVisible: context.sidebarState.isVisible,
                         selection: SessionSidebarSelection(selection: context.sidebarSelectionState.selection),
-                        width: SessionPersistencePolicy.sanitizedSidebarWidth(Double(context.sidebarState.persistedWidth))
+                        width: SessionPersistencePolicy.sanitizedSidebarWidth(Double(context.sidebarState.persistedWidth)),
+                        height: SessionPersistencePolicy.sanitizedTabBarHeight(Double(context.sidebarState.persistedHeight))
                     )
                 )
             }
@@ -7024,9 +7025,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let sidebarWidth = sessionWindowSnapshot?.sidebar.width
             .map(SessionPersistencePolicy.sanitizedSidebarWidth)
             ?? SessionPersistencePolicy.defaultSidebarWidth
+        let sidebarHeight = sessionWindowSnapshot?.sidebar.height
+            .map(SessionPersistencePolicy.sanitizedTabBarHeight)
+            ?? SessionPersistencePolicy.defaultTabBarHeight
         let sidebarState = SidebarState(
             isVisible: sessionWindowSnapshot?.sidebar.isVisible ?? true,
-            persistedWidth: CGFloat(sidebarWidth)
+            persistedWidth: CGFloat(sidebarWidth),
+            persistedHeight: CGFloat(sidebarHeight)
         )
         let sidebarSelectionState = SidebarSelectionState(
             selection: sessionWindowSnapshot?.sidebar.selection.sidebarSelection ?? .tabs
