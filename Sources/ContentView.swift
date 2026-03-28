@@ -344,11 +344,18 @@ struct TitlebarLayerBackground: NSViewRepresentable {
 final class SidebarState: ObservableObject {
     @Published var isVisible: Bool
     @Published var persistedWidth: CGFloat
+    @Published var persistedHeight: CGFloat
 
-    init(isVisible: Bool = true, persistedWidth: CGFloat = CGFloat(SessionPersistencePolicy.defaultSidebarWidth)) {
+    init(
+        isVisible: Bool = true,
+        persistedWidth: CGFloat = CGFloat(SessionPersistencePolicy.defaultSidebarWidth),
+        persistedHeight: CGFloat = CGFloat(SessionPersistencePolicy.defaultTabBarHeight)
+    ) {
         self.isVisible = isVisible
         let sanitized = SessionPersistencePolicy.sanitizedSidebarWidth(Double(persistedWidth))
         self.persistedWidth = CGFloat(sanitized)
+        let sanitizedHeight = SessionPersistencePolicy.sanitizedTabBarHeight(Double(persistedHeight))
+        self.persistedHeight = CGFloat(sanitizedHeight)
     }
 
     func toggle() {
@@ -1799,7 +1806,9 @@ struct ContentView: View {
     @EnvironmentObject var sidebarState: SidebarState
     @EnvironmentObject var sidebarSelectionState: SidebarSelectionState
     @EnvironmentObject var cmuxConfigStore: CmuxConfigStore
+    @AppStorage(TabBarPositionSettings.key) private var tabBarPositionRaw = TabBarPositionSettings.defaultPosition.rawValue
     @State private var sidebarWidth: CGFloat = 200
+    @State private var tabBarHeight: CGFloat = CGFloat(SessionPersistencePolicy.defaultTabBarHeight)
     @State private var hoveredResizerHandles: Set<SidebarResizerHandle> = []
     @State private var isResizerDragging = false
     @State private var sidebarDragStartWidth: CGFloat?
@@ -2590,6 +2599,55 @@ struct ContentView: View {
         }
     }
 
+    @State private var bottomBarDragStartHeight: CGFloat?
+
+    private var bottomBarResizerOverlay: some View {
+        GeometryReader { proxy in
+            let totalHeight = max(0, proxy.size.height)
+            VStack(spacing: 0) {
+                Color.clear
+                    .frame(maxHeight: .infinity)
+                    .allowsHitTesting(false)
+
+                Color.clear
+                    .frame(width: proxy.size.width, height: SidebarResizeInteraction.totalHitWidth)
+                    .contentShape(Rectangle())
+                    .onHover { hovering in
+                        if hovering {
+                            NSCursor.resizeUpDown.push()
+                        } else {
+                            NSCursor.pop()
+                        }
+                    }
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                if bottomBarDragStartHeight == nil {
+                                    bottomBarDragStartHeight = tabBarHeight
+                                }
+                                let newHeight = (bottomBarDragStartHeight ?? tabBarHeight) - value.translation.height
+                                let clamped = min(max(newHeight, CGFloat(SessionPersistencePolicy.minimumTabBarHeight)),
+                                                  min(CGFloat(SessionPersistencePolicy.maximumTabBarHeight), totalHeight * 0.5))
+                                tabBarHeight = clamped
+                            }
+                            .onEnded { _ in
+                                bottomBarDragStartHeight = nil
+                                sidebarState.persistedHeight = tabBarHeight
+                            }
+                    )
+
+                Color.clear
+                    .frame(height: max(0, tabBarHeight - SidebarResizeInteraction.totalHitWidth))
+                    .allowsHitTesting(false)
+            }
+            .frame(width: proxy.size.width, height: totalHeight, alignment: .bottom)
+        }
+    }
+
+    private var resolvedTabBarPosition: TabBarPosition {
+        TabBarPosition(rawValue: tabBarPositionRaw) ?? .left
+    }
+
     private var sidebarView: some View {
         VerticalTabsSidebar(
             updateViewModel: updateViewModel,
@@ -2600,6 +2658,18 @@ struct ContentView: View {
         )
         .frame(width: sidebarWidth)
         .frame(maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var tabBarView: some View {
+        HorizontalTabBar(
+            updateViewModel: updateViewModel,
+            onSendFeedback: presentFeedbackComposer,
+            selection: $sidebarSelectionState.selection,
+            selectedTabIds: $selectedTabIds,
+            lastSidebarSelectionIndex: $lastSidebarSelectionIndex
+        )
+        .frame(height: tabBarHeight)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Space at top of content area for the titlebar. This must be at least the actual titlebar
@@ -2869,41 +2939,74 @@ struct ContentView: View {
     }
 
     private var contentAndSidebarLayout: AnyView {
+        let position = resolvedTabBarPosition
         let layout: AnyView
-        // When matching terminal background, use HStack so both sidebar and terminal
-        // sit directly on the window background with no intermediate layers.
-        let useWithinWindow = sidebarBlendMode == SidebarBlendModeOption.withinWindow.rawValue
-            && !sidebarMatchTerminalBackground
-        if useWithinWindow {
-            // Overlay mode: terminal extends full width, sidebar on top
-            // This allows withinWindow blur to see the terminal content
-            layout = AnyView(
-                ZStack(alignment: .leading) {
-                    terminalContentWithSidebarDropOverlay
-                        .padding(.leading, sidebarState.isVisible ? sidebarWidth : 0)
-                    if sidebarState.isVisible {
-                        sidebarView
+
+        switch position {
+        case .left:
+            // When matching terminal background, use HStack so both sidebar and terminal
+            // sit directly on the window background with no intermediate layers.
+            let useWithinWindow = sidebarBlendMode == SidebarBlendModeOption.withinWindow.rawValue
+                && !sidebarMatchTerminalBackground
+            if useWithinWindow {
+                // Overlay mode: terminal extends full width, sidebar on top
+                // This allows withinWindow blur to see the terminal content
+                layout = AnyView(
+                    ZStack(alignment: .leading) {
+                        terminalContentWithSidebarDropOverlay
+                            .padding(.leading, sidebarState.isVisible ? sidebarWidth : 0)
+                        if sidebarState.isVisible {
+                            sidebarView
+                        }
                     }
-                }
-            )
-        } else {
-            // Standard HStack mode for behindWindow blur
-            layout = AnyView(
-                HStack(spacing: 0) {
-                    if sidebarState.isVisible {
-                        sidebarView
+                )
+            } else {
+                // Standard HStack mode for behindWindow blur
+                layout = AnyView(
+                    HStack(spacing: 0) {
+                        if sidebarState.isVisible {
+                            sidebarView
+                        }
+                        terminalContentWithSidebarDropOverlay
                     }
-                    terminalContentWithSidebarDropOverlay
-                }
-            )
+                )
+            }
+
+        case .bottom:
+            if sidebarBlendMode == SidebarBlendModeOption.withinWindow.rawValue {
+                layout = AnyView(
+                    ZStack(alignment: .bottom) {
+                        terminalContentWithSidebarDropOverlay
+                            .padding(.bottom, sidebarState.isVisible ? tabBarHeight : 0)
+                        if sidebarState.isVisible {
+                            tabBarView
+                        }
+                    }
+                )
+            } else {
+                layout = AnyView(
+                    VStack(spacing: 0) {
+                        terminalContentWithSidebarDropOverlay
+                        if sidebarState.isVisible {
+                            tabBarView
+                        }
+                    }
+                )
+            }
         }
 
+        let resizerAlignment: Alignment = position == .left ? .leading : .bottom
         return AnyView(
             layout
-                .overlay(alignment: .leading) {
+                .overlay(alignment: resizerAlignment) {
                     if sidebarState.isVisible {
-                        sidebarResizerOverlay
-                            .zIndex(1000)
+                        if position == .left {
+                            sidebarResizerOverlay
+                                .zIndex(1000)
+                        } else {
+                            bottomBarResizerOverlay
+                                .zIndex(1000)
+                        }
                     }
                 }
         )
@@ -2935,6 +3038,10 @@ struct ContentView: View {
             }
             if abs(sidebarState.persistedWidth - restoredWidth) > 0.5 {
                 sidebarState.persistedWidth = restoredWidth
+            }
+            let restoredHeight = CGFloat(SessionPersistencePolicy.sanitizedTabBarHeight(Double(sidebarState.persistedHeight)))
+            if abs(tabBarHeight - restoredHeight) > 0.5 {
+                tabBarHeight = restoredHeight
             }
             if selectedTabIds.isEmpty, let selectedId = tabManager.selectedTabId {
                 selectedTabIds = [selectedId]
@@ -9973,6 +10080,7 @@ struct VerticalTabsSidebar: View {
                                     tab: tab,
                                     index: index,
                                     isActive: tabManager.selectedTabId == tab.id,
+                                    compact: false,
                                     workspaceShortcutDigit: WorkspaceShortcutMapper.digitForWorkspace(
                                         at: index,
                                         workspaceCount: workspaceCount
@@ -10117,6 +10225,107 @@ struct VerticalTabsSidebar: View {
     private func debugShortSidebarTabId(_ id: UUID?) -> String {
         guard let id else { return "nil" }
         return String(id.uuidString.prefix(5))
+    }
+}
+
+// MARK: - HorizontalTabBar
+
+struct HorizontalTabBar: View {
+    @ObservedObject var updateViewModel: UpdateViewModel
+    let onSendFeedback: () -> Void
+    @EnvironmentObject var tabManager: TabManager
+    @EnvironmentObject var notificationStore: TerminalNotificationStore
+    @Binding var selection: SidebarSelection
+    @Binding var selectedTabIds: Set<UUID>
+    @Binding var lastSidebarSelectionIndex: Int?
+    @StateObject private var modifierKeyMonitor = SidebarShortcutHintModifierMonitor()
+    @StateObject private var dragAutoScrollController = SidebarDragAutoScrollController()
+    @State private var draggedTabId: UUID?
+    @State private var dropIndicator: SidebarDropIndicator?
+    @AppStorage(SidebarWorkspaceDetailSettings.hideAllDetailsKey)
+    private var sidebarHideAllDetails = SidebarWorkspaceDetailSettings.defaultHideAllDetails
+    @AppStorage(SidebarWorkspaceDetailSettings.showNotificationMessageKey)
+    private var sidebarShowNotificationMessage = SidebarWorkspaceDetailSettings.defaultShowNotificationMessage
+    @AppStorage(WorkspacePresentationModeSettings.modeKey)
+    private var workspacePresentationMode = WorkspacePresentationModeSettings.defaultMode.rawValue
+    @AppStorage(KeyboardShortcutSettings.Action.selectWorkspaceByNumber.defaultsKey)
+    private var selectWorkspaceByNumberShortcutData = Data()
+
+    private let tabColumnSpacing: CGFloat = 2
+
+    private var showsSidebarNotificationMessage: Bool {
+        SidebarWorkspaceDetailSettings.resolvedNotificationMessageVisibility(
+            showNotificationMessage: sidebarShowNotificationMessage,
+            hideAllDetails: sidebarHideAllDetails
+        )
+    }
+
+    private var workspaceNumberShortcut: StoredShortcut {
+        guard !selectWorkspaceByNumberShortcutData.isEmpty,
+              let shortcut = try? JSONDecoder().decode(StoredShortcut.self, from: selectWorkspaceByNumberShortcutData) else {
+            return KeyboardShortcutSettings.Action.selectWorkspaceByNumber.defaultShortcut
+        }
+        return shortcut
+    }
+
+    var body: some View {
+        let workspaceCount = tabManager.tabs.count
+        let canCloseWorkspace = workspaceCount > 1
+        let workspaceNumberShortcut = self.workspaceNumberShortcut
+
+        ZStack {
+            SidebarBackdrop()
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: tabColumnSpacing) {
+                    ForEach(Array(tabManager.tabs.enumerated()), id: \.element.id) { index, tab in
+                        let selectedContextIds: Set<UUID> = selectedTabIds.contains(tab.id) ? selectedTabIds : [tab.id]
+                        let remoteContextMenuTargets = tabManager.tabs.filter { workspace in
+                            selectedContextIds.contains(workspace.id) && workspace.isRemoteWorkspace
+                        }
+                        TabItemView(
+                            tabManager: tabManager,
+                            notificationStore: notificationStore,
+                            tab: tab,
+                            index: index,
+                            isActive: tabManager.selectedTabId == tab.id,
+                            compact: true,
+                            workspaceShortcutDigit: WorkspaceShortcutMapper.digitForWorkspace(
+                                at: index,
+                                workspaceCount: workspaceCount
+                            ),
+                            workspaceShortcutModifierSymbol: workspaceNumberShortcut.modifierDisplayString,
+                            canCloseWorkspace: canCloseWorkspace,
+                            accessibilityWorkspaceCount: workspaceCount,
+                            unreadCount: notificationStore.unreadCount(forTabId: tab.id),
+                            latestNotificationText: {
+                                guard showsSidebarNotificationMessage,
+                                      let notification = notificationStore.latestNotification(forTabId: tab.id) else {
+                                    return nil
+                                }
+                                let text = notification.body.isEmpty ? notification.title : notification.body
+                                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                return trimmed.isEmpty ? nil : trimmed
+                            }(),
+                            rowSpacing: tabColumnSpacing,
+                            setSelectionToTabs: { selection = .tabs },
+                            selectedTabIds: $selectedTabIds,
+                            lastSidebarSelectionIndex: $lastSidebarSelectionIndex,
+                            showsModifierShortcutHints: modifierKeyMonitor.isModifierPressed,
+                            dragAutoScrollController: dragAutoScrollController,
+                            draggedTabId: $draggedTabId,
+                            dropIndicator: $dropIndicator,
+                            remoteContextMenuWorkspaceIds: remoteContextMenuTargets.map(\.id),
+                            allRemoteContextMenuTargetsConnecting: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .connecting },
+                            allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected }
+                        )
+                        .equatable()
+                    }
+                }
+                .padding(.horizontal, 6)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 }
 
@@ -12386,6 +12595,7 @@ private struct TabItemView: View, Equatable {
         lhs.tab === rhs.tab &&
         lhs.index == rhs.index &&
         lhs.isActive == rhs.isActive &&
+        lhs.compact == rhs.compact &&
         lhs.workspaceShortcutDigit == rhs.workspaceShortcutDigit &&
         lhs.workspaceShortcutModifierSymbol == rhs.workspaceShortcutModifierSymbol &&
         lhs.canCloseWorkspace == rhs.canCloseWorkspace &&
@@ -12410,6 +12620,7 @@ private struct TabItemView: View, Equatable {
     let tab: Tab
     let index: Int
     let isActive: Bool
+    let compact: Bool
     let workspaceShortcutDigit: Int?
     let workspaceShortcutModifierSymbol: String
     let canCloseWorkspace: Bool
@@ -12785,7 +12996,7 @@ private struct TabItemView: View, Equatable {
                 .id(description)
             }
 
-            if let subtitle = effectiveSubtitle {
+            if !compact, let subtitle = effectiveSubtitle {
                 Text(subtitle)
                     .font(.system(size: 10))
                     .foregroundColor(activeSecondaryColor(0.8))
@@ -12794,6 +13005,7 @@ private struct TabItemView: View, Equatable {
                     .multilineTextAlignment(.leading)
             }
 
+            if !compact {
             remoteWorkspaceSection
 
             if detailVisibility.showsMetadata {
@@ -12958,12 +13170,14 @@ private struct TabItemView: View, Equatable {
                 .foregroundColor(activeSecondaryColor(0.75))
                 .lineLimit(1)
             }
+            } // end if !compact
         }
         .animation(.easeInOut(duration: 0.2), value: tab.logEntries.count)
         .animation(.easeInOut(duration: 0.2), value: tab.progress != nil)
         .animation(.easeInOut(duration: 0.2), value: tab.metadataBlocks.count)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, compact ? 6 : 10)
+        .padding(.vertical, compact ? 4 : 8)
+        .frame(width: compact ? 140 : nil)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(backgroundColor)

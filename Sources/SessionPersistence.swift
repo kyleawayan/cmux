@@ -19,10 +19,20 @@ enum SessionPersistencePolicy {
     static let maxScrollbackLinesPerTerminal: Int = 4000
     static let maxScrollbackCharactersPerTerminal: Int = 400_000
 
+    static let defaultTabBarHeight: Double = 44
+    static let minimumTabBarHeight: Double = 36
+    static let maximumTabBarHeight: Double = 200
+
     static func sanitizedSidebarWidth(_ candidate: Double?) -> Double {
         let fallback = defaultSidebarWidth
         guard let candidate, candidate.isFinite else { return fallback }
         return min(max(candidate, minimumSidebarWidth), maximumSidebarWidth)
+    }
+
+    static func sanitizedTabBarHeight(_ candidate: Double?) -> Double {
+        let fallback = defaultTabBarHeight
+        guard let candidate, candidate.isFinite else { return fallback }
+        return min(max(candidate, minimumTabBarHeight), maximumTabBarHeight)
     }
 
     static func truncatedScrollback(_ text: String?) -> String? {
@@ -194,6 +204,7 @@ struct SessionSidebarSnapshot: Codable, Sendable {
     var isVisible: Bool
     var selection: SessionSidebarSelection
     var width: Double?
+    var height: Double?
 }
 
 struct SessionStatusEntrySnapshot: Codable, Sendable {
