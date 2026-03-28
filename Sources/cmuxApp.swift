@@ -2887,6 +2887,7 @@ private struct SidebarDebugView: View {
     @AppStorage(SidebarActiveTabIndicatorSettings.styleKey)
     private var sidebarActiveTabIndicatorStyle = SidebarActiveTabIndicatorSettings.defaultStyle.rawValue
     @AppStorage("sidebarSelectionColorHex") private var sidebarSelectionColorHex: String?
+    @AppStorage(TabBarPositionSettings.key) private var tabBarPosition = TabBarPositionSettings.defaultPosition.rawValue
 
     private var selectedSidebarIndicatorStyle: SidebarActiveTabIndicatorStyle {
         SidebarActiveTabIndicatorSettings.resolvedStyle(rawValue: sidebarActiveTabIndicatorStyle)
@@ -2930,6 +2931,15 @@ private struct SidebarDebugView: View {
                     }
                     .onChange(of: sidebarPreset) { _ in
                         applyPreset()
+                    }
+                    .padding(.top, 2)
+                }
+
+                GroupBox(String(localized: "settings.sidebar.position", defaultValue: "Position")) {
+                    Picker(String(localized: "settings.sidebar.tabBarPosition", defaultValue: "Tab Bar Position"), selection: $tabBarPosition) {
+                        ForEach(TabBarPosition.allCases) { position in
+                            Text(position.displayName).tag(position.rawValue)
+                        }
                     }
                     .padding(.top, 2)
                 }
@@ -3906,6 +3916,7 @@ struct SettingsView: View {
     @AppStorage("sidebarTintHexDark") private var sidebarTintHexDark: String?
     @AppStorage("sidebarTintOpacity") private var sidebarTintOpacity = SidebarTintDefaults.opacity
     @AppStorage("sidebarMatchTerminalBackground") private var sidebarMatchTerminalBackground = false
+    @AppStorage(TabBarPositionSettings.key) private var settingsTabBarPosition = TabBarPositionSettings.defaultPosition.rawValue
 
     @ObservedObject private var notificationStore = TerminalNotificationStore.shared
     @State private var shortcutResetToken = UUID()
@@ -5034,6 +5045,21 @@ struct SettingsView: View {
 
                     SettingsSectionHeader(title: String(localized: "settings.section.sidebarAppearance", defaultValue: "Sidebar Appearance"))
                     SettingsCard {
+                        SettingsCardRow(
+                            String(localized: "settings.sidebarAppearance.tabBarPosition", defaultValue: "Tab Bar Position"),
+                            subtitle: String(localized: "settings.sidebarAppearance.tabBarPosition.subtitle", defaultValue: "Place the tab bar on the left as a sidebar or at the bottom as a horizontal bar.")
+                        ) {
+                            Picker(String(localized: "settings.sidebarAppearance.tabBarPosition.picker", defaultValue: "Position"), selection: $settingsTabBarPosition) {
+                                ForEach(TabBarPosition.allCases) { position in
+                                    Text(position.displayName).tag(position.rawValue)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 120)
+                        }
+
+                        SettingsCardDivider()
+
                         SettingsCardRow(
                             String(localized: "settings.sidebarAppearance.matchTerminalBackground", defaultValue: "Match Terminal Background"),
                             subtitle: String(localized: "settings.sidebarAppearance.matchTerminalBackground.subtitle", defaultValue: "Use the same background color and transparency as the terminal.")
