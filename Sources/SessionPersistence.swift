@@ -19,9 +19,9 @@ enum SessionPersistencePolicy {
     static let maxScrollbackLinesPerTerminal: Int = 4000
     static let maxScrollbackCharactersPerTerminal: Int = 400_000
 
-    static let defaultTabBarHeight: Double = 44
-    static let minimumTabBarHeight: Double = 36
-    static let maximumTabBarHeight: Double = 200
+    static let defaultTabBarHeight: Double = 120
+    static let minimumTabBarHeight: Double = 60
+    static let maximumTabBarHeight: Double = 300
 
     static func sanitizedSidebarWidth(_ candidate: Double?) -> Double {
         let fallback = defaultSidebarWidth
