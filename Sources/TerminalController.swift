@@ -343,8 +343,7 @@ class TerminalController {
         color: String?,
         url: URL?,
         priority: Int,
-        format: SidebarMetadataFormat,
-        gifPath: String? = nil
+        format: SidebarMetadataFormat
     ) -> Bool {
         guard let current else { return true }
         return current.key != key ||
@@ -353,8 +352,7 @@ class TerminalController {
             current.color != color ||
             current.url != url ||
             current.priority != priority ||
-            current.format != format ||
-            current.gifPath != gifPath
+            current.format != format
     }
 
     nonisolated static func shouldReplaceMetadataBlock(
@@ -11415,7 +11413,7 @@ class TerminalController {
           clear_notifications [--tab=X]    - Clear notifications (all or per-tab)
           set_app_focus <active|inactive|clear> - Override app focus state
           simulate_app_active             - Trigger app active handler
-          set_status <key> <value> [--icon=X] [--color=#hex] [--url=X] [--priority=N] [--format=plain|markdown] [--gif=<path>] [--tab=X] - Set a status entry
+          set_status <key> <value> [--icon=X] [--color=#hex] [--url=X] [--priority=N] [--format=plain|markdown] [--tab=X] - Set a status entry
           report_meta <key> <value> [--icon=X] [--color=#hex] [--url=X] [--priority=N] [--format=plain|markdown] [--tab=X] - Set sidebar metadata entry
           report_meta_block <key> [--priority=N] [--tab=X] -- <markdown> - Set freeform sidebar markdown block
           clear_status <key> [--tab=X] - Remove a status entry
@@ -14687,8 +14685,7 @@ class TerminalController {
                 color: color,
                 url: parsedURL,
                 priority: priority,
-                format: format,
-                gifPath: gifPath
+                format: format
             ) else {
                 // Still update PID tracking even if the status display hasn't changed.
                 if let pidValue {
@@ -14705,7 +14702,6 @@ class TerminalController {
                 url: parsedURL,
                 priority: priority,
                 format: format,
-                gifPath: gifPath,
                 timestamp: Date()
             )
             if let pidValue {
@@ -14785,7 +14781,6 @@ class TerminalController {
         if let url = entry.url { line += " url=\(url.absoluteString)" }
         if entry.priority != 0 { line += " priority=\(entry.priority)" }
         if entry.format != .plain { line += " format=\(entry.format.rawValue)" }
-        if let gif = entry.gifPath { line += " gif=\(gif)" }
         return line
     }
 
@@ -14809,7 +14804,7 @@ class TerminalController {
     private func setStatus(_ args: String) -> String {
         upsertSidebarMetadata(
             args,
-            missingError: "ERROR: Missing status key or value — usage: set_status <key> <value> [--icon=X] [--color=#hex] [--url=X] [--priority=N] [--format=plain|markdown] [--gif=<path>] [--tab=X]"
+            missingError: "ERROR: Missing status key or value — usage: set_status <key> <value> [--icon=X] [--color=#hex] [--url=X] [--priority=N] [--format=plain|markdown] [--tab=X]"
         )
     }
 
