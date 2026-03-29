@@ -13304,6 +13304,19 @@ private struct TabItemView: View, Equatable {
                     }
                 }
         )
+        .overlay(alignment: .bottomTrailing) {
+            if topRail, let gifPath = tab.statusEntries.values.first(where: { $0.gifPath != nil })?.gifPath {
+                GeometryReader { geo in
+                    let gifHeight = geo.size.height * 0.5
+                    AnimatedGIFView(path: gifPath)
+                        .frame(height: gifHeight)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                }
+                .opacity(0.5)
+                .allowsHitTesting(false)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+        }
         .padding(.horizontal, topRail ? 0 : 6)
         .background {
             GeometryReader { proxy in
@@ -16012,5 +16025,41 @@ extension NSColor {
             return String(format: "#%02X%02X%02X%02X", redByte, greenByte, blueByte, alphaByte)
         }
         return String(format: "#%02X%02X%02X", redByte, greenByte, blueByte)
+    }
+}
+
+// MARK: - Animated GIF View
+
+private struct AnimatedGIFView: NSViewRepresentable {
+    let path: String
+
+    func makeNSView(context: Context) -> NSImageView {
+        let imageView = NSImageView()
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.animates = true
+        imageView.canDrawSubviewsIntoLayer = true
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        loadGIF(into: imageView)
+        return imageView
+    }
+
+    func updateNSView(_ nsView: NSImageView, context: Context) {
+        if let current = context.coordinator.currentPath, current == path { return }
+        loadGIF(into: nsView)
+        context.coordinator.currentPath = path
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var currentPath: String?
+    }
+
+    private func loadGIF(into imageView: NSImageView) {
+        let url = URL(fileURLWithPath: path)
+        guard let image = NSImage(contentsOf: url) else { return }
+        imageView.image = image
+        imageView.animates = true
     }
 }
