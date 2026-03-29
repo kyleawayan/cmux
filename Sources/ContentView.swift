@@ -12778,6 +12778,12 @@ private struct TabItemView: View, Equatable {
         explicitRailColor != nil
     }
 
+    /// Resolves the GIF/image path from settings based on the Claude Code status mode.
+    private var resolvedStatusImagePath: String? {
+        guard let claudeEntry = tab.statusEntries["claude_code"] else { return nil }
+        return ClaudeCodeIntegrationSettings.imagePath(forStatusValue: claudeEntry.value)
+    }
+
     private var activeBorderLineWidth: CGFloat {
         switch activeTabIndicatorStyle {
         case .leftRail:
@@ -13280,6 +13286,13 @@ private struct TabItemView: View, Equatable {
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(backgroundColor)
+                .overlay(alignment: .bottomTrailing) {
+                    if topRail, let gifPath = resolvedStatusImagePath {
+                        AnimatedGIFView(path: gifPath)
+                            .allowsHitTesting(false)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
                 .overlay {
                     RoundedRectangle(cornerRadius: 6)
                         .strokeBorder(activeBorderColor, lineWidth: activeBorderLineWidth)
@@ -13304,19 +13317,6 @@ private struct TabItemView: View, Equatable {
                     }
                 }
         )
-        .overlay(alignment: .bottomTrailing) {
-            if topRail, let gifPath = tab.statusEntries.values.first(where: { $0.gifPath != nil })?.gifPath {
-                GeometryReader { geo in
-                    let gifHeight = geo.size.height * 0.5
-                    AnimatedGIFView(path: gifPath)
-                        .frame(height: gifHeight)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                }
-                .opacity(0.5)
-                .allowsHitTesting(false)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-        }
         .padding(.horizontal, topRail ? 0 : 6)
         .background {
             GeometryReader { proxy in
@@ -16036,16 +16036,18 @@ private struct AnimatedGIFView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSImageView {
         let imageView = NSImageView()
         imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.imageAlignment = .alignBottom
         imageView.animates = true
         imageView.canDrawSubviewsIntoLayer = true
         imageView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         imageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         loadGIF(into: imageView)
+        context.coordinator.currentPath = path
         return imageView
     }
 
     func updateNSView(_ nsView: NSImageView, context: Context) {
-        if let current = context.coordinator.currentPath, current == path { return }
+        if context.coordinator.currentPath == path { return }
         loadGIF(into: nsView)
         context.coordinator.currentPath = path
     }
