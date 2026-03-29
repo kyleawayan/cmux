@@ -3301,6 +3301,9 @@ struct ContentView: View {
             }
             syncSidebarSelectedWorkspaceIds()
             applyUITestSidebarSelectionIfNeeded(tabs: tabs)
+            DispatchQueue.main.async {
+                syncTrafficLightInset()
+            }
         })
 
         view = AnyView(view.onReceive(NotificationCenter.default.publisher(for: SidebarDragLifecycleNotification.stateDidChange)) { notification in
