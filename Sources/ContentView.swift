@@ -14501,7 +14501,11 @@ private struct AnimatedGIFView: NSViewRepresentable {
 
     private func loadGIF(into imageView: NSImageView) {
         let url = URL(fileURLWithPath: path)
-        guard let image = NSImage(contentsOf: url) else { return }
+        guard let image = NSImage(contentsOf: url) else {
+            imageView.image = nil
+            imageView.animates = false
+            return
+        }
         imageView.image = image
         imageView.animates = true
     }
