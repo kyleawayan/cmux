@@ -2401,6 +2401,55 @@ struct ContentView: View {
         .frame(maxHeight: .infinity, alignment: .topLeading)
     }
 
+    // Bottom tab bar settings — read here to compute the fixed height.
+    @AppStorage(SidebarWorkspaceDetailSettings.hideAllDetailsKey)
+    private var bottomBarHideAllDetails = SidebarWorkspaceDetailSettings.defaultHideAllDetails
+    @AppStorage(SidebarWorkspaceDetailSettings.showNotificationMessageKey)
+    private var bottomBarShowNotificationMessage = SidebarWorkspaceDetailSettings.defaultShowNotificationMessage
+    @AppStorage("sidebarShowBranchDirectory") private var bottomBarShowBranchDirectory = true
+    @AppStorage("sidebarShowPullRequest") private var bottomBarShowPullRequest = true
+    @AppStorage("sidebarShowSSH") private var bottomBarShowSSH = true
+    @AppStorage("sidebarShowPorts") private var bottomBarShowPorts = true
+    @AppStorage("sidebarShowLog") private var bottomBarShowLog = true
+    @AppStorage("sidebarShowProgress") private var bottomBarShowProgress = true
+    @AppStorage("sidebarShowStatusPills") private var bottomBarShowMetadata = true
+
+    /// Fixed tab bar height computed from which detail toggles are enabled.
+    private var computedTabBarHeight: CGFloat {
+        let outerPadding: CGFloat = 12   // HorizontalTabBar .padding(.vertical, 6) × 2
+        let divider: CGFloat = 1          // top divider
+        let cardPadding: CGFloat = 18     // TabItemView padding (8+8 vertical + 2 topRail)
+        let titleRow: CGFloat = 16        // always present
+
+        var contentHeight = titleRow
+
+        let details = SidebarWorkspaceAuxiliaryDetailVisibility.resolved(
+            showMetadata: bottomBarShowMetadata,
+            showLog: bottomBarShowLog,
+            showProgress: bottomBarShowProgress,
+            showBranchDirectory: bottomBarShowBranchDirectory,
+            showPullRequests: bottomBarShowPullRequest,
+            showPorts: bottomBarShowPorts,
+            hideAllDetails: bottomBarHideAllDetails
+        )
+
+        let showsNotification = SidebarWorkspaceDetailSettings.resolvedNotificationMessageVisibility(
+            showNotificationMessage: bottomBarShowNotificationMessage,
+            hideAllDetails: bottomBarHideAllDetails
+        )
+
+        if showsNotification { contentHeight += 17 }
+        if bottomBarShowSSH { contentHeight += 18 }
+        if details.showsMetadata { contentHeight += 17 }
+        if details.showsLog { contentHeight += 17 }
+        if details.showsProgress { contentHeight += 18 }
+        if details.showsBranchDirectory { contentHeight += 17 }
+        if details.showsPullRequests { contentHeight += 17 }
+        if details.showsPorts { contentHeight += 17 }
+
+        return outerPadding + divider + cardPadding + contentHeight
+    }
+
     private var tabBarView: some View {
         HorizontalTabBar(
             updateViewModel: updateViewModel,
@@ -2410,7 +2459,7 @@ struct ContentView: View {
             lastSidebarSelectionIndex: $lastSidebarSelectionIndex
         )
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: tabBarHeight)
+        .frame(height: computedTabBarHeight)
         .clipped()
     }
 
@@ -2732,12 +2781,7 @@ struct ContentView: View {
                             .zIndex(1000)
                     }
                 }
-                .overlay(alignment: .bottom) {
-                    if sidebarState.isVisible && position == .bottom {
-                        bottomBarResizerOverlay
-                            .zIndex(1000)
-                    }
-                }
+                // Bottom bar height is now computed from settings — no resize handle.
         )
     }
 
@@ -8847,6 +8891,7 @@ struct HorizontalTabBar: View {
     private var selectWorkspaceByNumberShortcutData = Data()
 
     private let tabColumnSpacing: CGFloat = 6
+    private let maxTabWidth: CGFloat = 200
 
     private var showsSidebarNotificationMessage: Bool {
         SidebarWorkspaceDetailSettings.resolvedNotificationMessageVisibility(
@@ -8871,66 +8916,60 @@ struct HorizontalTabBar: View {
         ZStack {
             SidebarBackdrop()
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: tabColumnSpacing) {
-                    ForEach(Array(tabManager.tabs.enumerated()), id: \.element.id) { index, tab in
-                        let selectedContextIds: Set<UUID> = selectedTabIds.contains(tab.id) ? selectedTabIds : [tab.id]
-                        let remoteContextMenuTargets = tabManager.tabs.filter { workspace in
-                            selectedContextIds.contains(workspace.id) && workspace.isRemoteWorkspace
-                        }
-                        TabItemView(
-                            tabManager: tabManager,
-                            notificationStore: notificationStore,
-                            tab: tab,
-                            index: index,
-                            isActive: tabManager.selectedTabId == tab.id,
-                            compact: false,
-                            topRail: true,
-                            workspaceShortcutDigit: WorkspaceShortcutMapper.digitForWorkspace(
-                                at: index,
-                                workspaceCount: workspaceCount
-                            ),
-                            workspaceShortcutModifierSymbol: workspaceNumberShortcut.modifierDisplayString,
-                            canCloseWorkspace: canCloseWorkspace,
-                            accessibilityWorkspaceCount: workspaceCount,
-                            unreadCount: notificationStore.unreadCount(forTabId: tab.id),
-                            latestNotificationText: {
-                                guard showsSidebarNotificationMessage,
-                                      let notification = notificationStore.latestNotification(forTabId: tab.id) else {
-                                    return nil
-                                }
-                                let text = notification.body.isEmpty ? notification.title : notification.body
-                                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                                return trimmed.isEmpty ? nil : trimmed
-                            }(),
-                            rowSpacing: tabColumnSpacing,
-                            setSelectionToTabs: { selection = .tabs },
-                            selectedTabIds: $selectedTabIds,
-                            lastSidebarSelectionIndex: $lastSidebarSelectionIndex,
-                            showsModifierShortcutHints: modifierKeyMonitor.isModifierPressed,
-                            dragAutoScrollController: dragAutoScrollController,
-                            draggedTabId: $draggedTabId,
-                            dropIndicator: $dropIndicator,
-                            remoteContextMenuWorkspaceIds: remoteContextMenuTargets.map(\.id),
-                            allRemoteContextMenuTargetsConnecting: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .connecting },
-                            allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected }
-                        )
-                        .equatable()
-                        .frame(width: 200)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                        )
+            HStack(alignment: .top, spacing: tabColumnSpacing) {
+                ForEach(Array(tabManager.tabs.enumerated()), id: \.element.id) { index, tab in
+                    let selectedContextIds: Set<UUID> = selectedTabIds.contains(tab.id) ? selectedTabIds : [tab.id]
+                    let remoteContextMenuTargets = tabManager.tabs.filter { workspace in
+                        selectedContextIds.contains(workspace.id) && workspace.isRemoteWorkspace
                     }
+                    TabItemView(
+                        tabManager: tabManager,
+                        notificationStore: notificationStore,
+                        tab: tab,
+                        index: index,
+                        isActive: tabManager.selectedTabId == tab.id,
+                        compact: false,
+                        topRail: true,
+                        workspaceShortcutDigit: WorkspaceShortcutMapper.digitForWorkspace(
+                            at: index,
+                            workspaceCount: workspaceCount
+                        ),
+                        workspaceShortcutModifierSymbol: workspaceNumberShortcut.modifierDisplayString,
+                        canCloseWorkspace: canCloseWorkspace,
+                        accessibilityWorkspaceCount: workspaceCount,
+                        unreadCount: notificationStore.unreadCount(forTabId: tab.id),
+                        latestNotificationText: {
+                            guard showsSidebarNotificationMessage,
+                                  let notification = notificationStore.latestNotification(forTabId: tab.id) else {
+                                return nil
+                            }
+                            let text = notification.body.isEmpty ? notification.title : notification.body
+                            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            return trimmed.isEmpty ? nil : trimmed
+                        }(),
+                        rowSpacing: tabColumnSpacing,
+                        setSelectionToTabs: { selection = .tabs },
+                        selectedTabIds: $selectedTabIds,
+                        lastSidebarSelectionIndex: $lastSidebarSelectionIndex,
+                        showsModifierShortcutHints: modifierKeyMonitor.isModifierPressed,
+                        dragAutoScrollController: dragAutoScrollController,
+                        draggedTabId: $draggedTabId,
+                        dropIndicator: $dropIndicator,
+                        remoteContextMenuWorkspaceIds: remoteContextMenuTargets.map(\.id),
+                        allRemoteContextMenuTargetsConnecting: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .connecting },
+                        allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected }
+                    )
+                    .equatable()
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 6)
             }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(Color.white.opacity(0.15))
+                .fill(Color(nsColor: .separatorColor))
                 .frame(height: 1)
         }
     }
@@ -11195,6 +11234,22 @@ enum SidebarTrailingAccessoryWidthPolicy {
 // or NotificationStore publish causes ALL tab items to re-evaluate (~18% of
 // main thread during typing). If you add new properties, update == below.
 // Reactive workspace state inside the row must not rely on parent diffs alone:
+private enum TabTitleCompaction {
+    private static let vowels: Set<Character> = ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]
+
+    static func compacted(_ text: String) -> String {
+        text.split(separator: " ", omittingEmptySubsequences: true).map { word in
+            let s = String(word)
+            guard s.count > 3 else { return s }
+            let first = s[s.startIndex]
+            let last = s[s.index(before: s.endIndex)]
+            let interior = s[s.index(after: s.startIndex)..<s.index(before: s.endIndex)]
+            let stripped = interior.filter { !vowels.contains($0) }
+            return String(first) + stripped + String(last)
+        }.joined(separator: " ")
+    }
+}
+
 // `.equatable()` can otherwise leave sidebar badges/details stale until an
 // unrelated parent change sneaks through. Keep the workspace reference plain
 // and bridge its objectWillChange into local state instead.
@@ -11302,13 +11357,22 @@ private struct TabItemView: View, Equatable {
     private var activeBorderLineWidth: CGFloat {
         switch activeTabIndicatorStyle {
         case .leftRail:
-            return 0
+            return topRail ? 1 : 0
         case .solidFill:
-            return isActive ? 1.5 : 0
+            if isActive { return 1.5 }
+            return topRail ? 1 : 0
         }
     }
 
     private var activeBorderColor: Color {
+        // Horizontal (topRail) tabs always get a visible border.
+        if topRail {
+            if isActive, activeTabIndicatorStyle == .solidFill {
+                return Color.primary.opacity(0.5)
+            }
+            return Color(nsColor: .separatorColor)
+        }
+        // Vertical sidebar: only active solidFill tabs get a border.
         guard isActive else { return .clear }
         switch activeTabIndicatorStyle {
         case .leftRail:
@@ -11540,51 +11604,68 @@ private struct TabItemView: View, Equatable {
                         .safeHelp(protectedWorkspaceTooltip)
                 }
 
-                Text(tab.title)
-                    .font(.system(size: 12.5, weight: titleFontWeight))
-                    .foregroundColor(activePrimaryTextColor)
-                    .lineLimit(1)
+                if topRail {
+                    ViewThatFits {
+                        Text(tab.title)
+                            .font(.system(size: 12.5, weight: titleFontWeight))
+                            .foregroundColor(activePrimaryTextColor)
+                            .lineLimit(1)
+                        Text(TabTitleCompaction.compacted(tab.title))
+                            .font(.system(size: 12.5, weight: titleFontWeight))
+                            .foregroundColor(activePrimaryTextColor)
+                            .lineLimit(1)
+                    }
                     .truncationMode(.tail)
                     .layoutPriority(1)
-
-                Spacer(minLength: 0)
-
-                ZStack(alignment: .trailing) {
-                    Button(action: {
-                        #if DEBUG
-                        dlog("sidebar.close workspace=\(tab.id.uuidString.prefix(5)) method=button")
-                        #endif
-                        tabManager.closeWorkspaceWithConfirmation(tab)
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundColor(activeSecondaryColor(0.7))
-                    }
-                    .buttonStyle(.plain)
-                    .safeHelp(closeButtonTooltip)
-                    .frame(width: SidebarTrailingAccessoryWidthPolicy.closeButtonWidth, height: 16, alignment: .center)
-                    .opacity(showCloseButton && !showsWorkspaceShortcutHint ? 1 : 0)
-                    .allowsHitTesting(showCloseButton && !showsWorkspaceShortcutHint)
-
-                    if showsWorkspaceShortcutHint, let workspaceShortcutLabel {
-                        Text(workspaceShortcutLabel)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundColor(activePrimaryTextColor)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(ShortcutHintPillBackground(emphasis: shortcutHintEmphasis))
-                            .offset(
-                                x: ShortcutHintDebugSettings.clamped(sidebarShortcutHintXOffset),
-                                y: ShortcutHintDebugSettings.clamped(sidebarShortcutHintYOffset)
-                            )
-                            .transition(.opacity)
-                    }
+                } else {
+                    Text(tab.title)
+                        .font(.system(size: 12.5, weight: titleFontWeight))
+                        .foregroundColor(activePrimaryTextColor)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .layoutPriority(1)
                 }
-                .animation(.easeInOut(duration: 0.14), value: showsModifierShortcutHints || alwaysShowShortcutHints)
-                .frame(width: trailingAccessoryWidth, height: 16, alignment: .trailing)
+
+                if !topRail {
+                    Spacer(minLength: 0)
+
+                    ZStack(alignment: .trailing) {
+                        Button(action: {
+                            #if DEBUG
+                            dlog("sidebar.close workspace=\(tab.id.uuidString.prefix(5)) method=button")
+                            #endif
+                            tabManager.closeWorkspaceWithConfirmation(tab)
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(activeSecondaryColor(0.7))
+                        }
+                        .buttonStyle(.plain)
+                        .safeHelp(closeButtonTooltip)
+                        .frame(width: SidebarTrailingAccessoryWidthPolicy.closeButtonWidth, height: 16, alignment: .center)
+                        .opacity(showCloseButton && !showsWorkspaceShortcutHint ? 1 : 0)
+                        .allowsHitTesting(showCloseButton && !showsWorkspaceShortcutHint)
+
+                        if showsWorkspaceShortcutHint, let workspaceShortcutLabel {
+                            Text(workspaceShortcutLabel)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundColor(activePrimaryTextColor)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(ShortcutHintPillBackground(emphasis: shortcutHintEmphasis))
+                                .offset(
+                                    x: ShortcutHintDebugSettings.clamped(sidebarShortcutHintXOffset),
+                                    y: ShortcutHintDebugSettings.clamped(sidebarShortcutHintYOffset)
+                                )
+                                .transition(.opacity)
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.14), value: showsModifierShortcutHints || alwaysShowShortcutHints)
+                    .frame(width: trailingAccessoryWidth, height: 16, alignment: .trailing)
+                }
             }
 
             if !compact, let subtitle = effectiveSubtitle {
@@ -11770,7 +11851,8 @@ private struct TabItemView: View, Equatable {
         .animation(.easeInOut(duration: 0.2), value: tab.metadataBlocks.count)
         .padding(.horizontal, compact ? 6 : 10)
         .padding(.vertical, compact ? 4 : 8)
-        .frame(width: compact ? 140 : nil)
+        .frame(width: compact && !topRail ? 140 : nil)
+        .frame(maxWidth: topRail ? .infinity : nil, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(backgroundColor)
