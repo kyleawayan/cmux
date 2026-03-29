@@ -12636,13 +12636,13 @@ private enum TabTitleCompaction {
     static func compacted(_ text: String) -> String {
         text.split(separator: " ", omittingEmptySubsequences: true).map { word in
             let s = String(word)
-            guard s.count > 3 else { return s }
+            guard s.count > 3 else { return s.capitalized }
             let first = s[s.startIndex]
             let last = s[s.index(before: s.endIndex)]
             let interior = s[s.index(after: s.startIndex)..<s.index(before: s.endIndex)]
             let stripped = interior.filter { !vowels.contains($0) }
-            return String(first) + stripped + String(last)
-        }.joined(separator: " ")
+            return String(first).uppercased() + stripped + String(last)
+        }.joined()
     }
 }
 
