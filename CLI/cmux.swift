@@ -6991,13 +6991,11 @@ struct CMUXCLI {
             Flags:
               --icon <name>          Icon name (e.g. "sparkle", "hammer")
               --color <#hex>         Pill color (e.g. "#ff9500")
-              --gif <path>           Path to a GIF to display in the bottom tab bar card
               --workspace <id|ref>   Target workspace (default: $CMUX_WORKSPACE_ID)
 
             Example:
               cmux set-status build "compiling" --icon hammer --color "#ff9500"
               cmux set-status deploy "v1.2.3" --workspace workspace:2
-              cmux set-status claude_code "Running" --icon bolt.fill --gif ~/typing.gif
             """
         case "clear-status":
             return """
@@ -11362,15 +11360,11 @@ struct CMUXCLI {
         value: String,
         icon: String,
         color: String,
-        pid: Int? = nil,
-        gif: String? = nil
+        pid: Int? = nil
     ) throws {
         var cmd = "set_status claude_code \(value) --icon=\(icon) --color=\(color) --tab=\(workspaceId)"
         if let pid {
             cmd += " --pid=\(pid)"
-        }
-        if let gif {
-            cmd += " --gif=\(gif)"
         }
         _ = try client.send(command: cmd)
     }

@@ -3811,11 +3811,32 @@ enum ClaudeCodeIntegrationSettings {
     static let hooksEnabledKey = "claudeCodeHooksEnabled"
     static let defaultHooksEnabled = true
 
+    static let runningImagePathKey = "claudeCodeRunningImagePath"
+    static let idleImagePathKey = "claudeCodeIdleImagePath"
+    static let needsInputImagePathKey = "claudeCodeNeedsInputImagePath"
+    static let defaultImagePath = ""
+
     static func hooksEnabled(defaults: UserDefaults = .standard) -> Bool {
         if defaults.object(forKey: hooksEnabledKey) == nil {
             return defaultHooksEnabled
         }
         return defaults.bool(forKey: hooksEnabledKey)
+    }
+
+    static func imagePath(forStatusValue value: String, defaults: UserDefaults = .standard) -> String? {
+        let key: String
+        switch value.lowercased() {
+        case "running": key = runningImagePathKey
+        case "idle": key = idleImagePathKey
+        case "needs input": key = needsInputImagePathKey
+        default:
+            // Verbose tool statuses (e.g. "Reading file.swift") map to Running
+            if !value.isEmpty { key = runningImagePathKey } else { return nil }
+        }
+        let path = defaults.string(forKey: key) ?? ""
+        guard !path.isEmpty else { return nil }
+        let expanded = (path as NSString).expandingTildeInPath
+        return FileManager.default.fileExists(atPath: expanded) ? expanded : nil
     }
 }
 
@@ -3851,6 +3872,12 @@ struct SettingsView: View {
     @AppStorage(SocketControlSettings.appStorageKey) private var socketControlMode = SocketControlSettings.defaultMode.rawValue
     @AppStorage(ClaudeCodeIntegrationSettings.hooksEnabledKey)
     private var claudeCodeHooksEnabled = ClaudeCodeIntegrationSettings.defaultHooksEnabled
+    @AppStorage(ClaudeCodeIntegrationSettings.runningImagePathKey)
+    private var claudeCodeRunningImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
+    @AppStorage(ClaudeCodeIntegrationSettings.idleImagePathKey)
+    private var claudeCodeIdleImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
+    @AppStorage(ClaudeCodeIntegrationSettings.needsInputImagePathKey)
+    private var claudeCodeNeedsInputImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
     @AppStorage(TelemetrySettings.sendAnonymousTelemetryKey)
     private var sendAnonymousTelemetry = TelemetrySettings.defaultSendAnonymousTelemetry
     @AppStorage("cmuxPortBase") private var cmuxPortBase = 9100
@@ -4334,6 +4361,53 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func claudeCodeStatusImageRow(_ label: String, path: Binding<String>) -> some View {
+        SettingsCardRow(label, subtitle: claudeCodeStatusImageDisplayName(path.wrappedValue)) {
+            HStack(spacing: 6) {
+                Button(
+                    String(localized: "settings.automation.claudeCode.image.choose", defaultValue: "Choose...")
+                ) {
+                    chooseClaudeCodeStatusImage(binding: path)
+                }
+                .controlSize(.small)
+                Button(
+                    String(localized: "settings.automation.claudeCode.image.clear", defaultValue: "Clear")
+                ) {
+                    path.wrappedValue = ""
+                }
+                .controlSize(.small)
+                .disabled(path.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+    }
+
+    private func claudeCodeStatusImageDisplayName(_ path: String) -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return String(localized: "settings.automation.claudeCode.image.none", defaultValue: "None")
+        }
+        return URL(fileURLWithPath: trimmed).lastPathComponent
+    }
+
+    private func chooseClaudeCodeStatusImage(binding: Binding<String>) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.gif, .png, .jpeg, .webP]
+        panel.title = String(
+            localized: "settings.automation.claudeCode.image.choose.title",
+            defaultValue: "Choose Status GIF/Image"
+        )
+        panel.prompt = String(
+            localized: "settings.automation.claudeCode.image.choose.prompt",
+            defaultValue: "Choose"
+        )
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        binding.wrappedValue = url.path
     }
 
     private func chooseNotificationSoundFile() {
@@ -5225,6 +5299,27 @@ struct SettingsView: View {
 
                         SettingsCardDivider()
 
+                        claudeCodeStatusImageRow(
+                            String(localized: "settings.automation.claudeCode.runningImage", defaultValue: "Running GIF/Image"),
+                            path: $claudeCodeRunningImagePath
+                        )
+
+                        SettingsCardDivider()
+
+                        claudeCodeStatusImageRow(
+                            String(localized: "settings.automation.claudeCode.idleImage", defaultValue: "Idle GIF/Image"),
+                            path: $claudeCodeIdleImagePath
+                        )
+
+                        SettingsCardDivider()
+
+                        claudeCodeStatusImageRow(
+                            String(localized: "settings.automation.claudeCode.needsInputImage", defaultValue: "Needs Input GIF/Image"),
+                            path: $claudeCodeNeedsInputImagePath
+                        )
+
+                        SettingsCardDivider()
+
                         SettingsCardNote(String(localized: "settings.automation.claudeCode.note", defaultValue: "When enabled, cmux wraps the claude command to inject session tracking and notification hooks. Disable if you prefer to manage Claude Code hooks yourself."))
                     }
 
@@ -5777,6 +5872,9 @@ struct SettingsView: View {
         AppIconSettings.applyIcon(.automatic)
         socketControlMode = SocketControlSettings.defaultMode.rawValue
         claudeCodeHooksEnabled = ClaudeCodeIntegrationSettings.defaultHooksEnabled
+        claudeCodeRunningImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
+        claudeCodeIdleImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
+        claudeCodeNeedsInputImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
         sendAnonymousTelemetry = TelemetrySettings.defaultSendAnonymousTelemetry
         browserSearchEngine = BrowserSearchSettings.defaultSearchEngine.rawValue
         browserSearchSuggestionsEnabled = BrowserSearchSettings.defaultSearchSuggestionsEnabled

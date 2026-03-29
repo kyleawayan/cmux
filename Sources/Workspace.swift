@@ -120,7 +120,6 @@ struct SidebarStatusEntry {
     let url: URL?
     let priority: Int
     let format: SidebarMetadataFormat
-    let gifPath: String?
     let timestamp: Date
 
     init(
@@ -131,7 +130,6 @@ struct SidebarStatusEntry {
         url: URL? = nil,
         priority: Int = 0,
         format: SidebarMetadataFormat = .plain,
-        gifPath: String? = nil,
         timestamp: Date = Date()
     ) {
         self.key = key
@@ -141,7 +139,6 @@ struct SidebarStatusEntry {
         self.url = url
         self.priority = priority
         self.format = format
-        self.gifPath = gifPath
         self.timestamp = timestamp
     }
 }
