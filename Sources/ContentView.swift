@@ -10923,6 +10923,7 @@ private final class SidebarDragFailsafeMonitor: ObservableObject {
     private var keyDownMonitor: Any?
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
+    private var pollingTimer: Timer?
     private var onRequestClear: ((String) -> Void)?
 
     func start(onRequestClear: @escaping (String) -> Void) {
@@ -10970,6 +10971,18 @@ private final class SidebarDragFailsafeMonitor: ObservableObject {
                 }
             }
         }
+        if pollingTimer == nil {
+            let timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if !CGEventSource.buttonState(.combinedSessionState, button: .left) {
+                        self.requestClearSoon(reason: "polling_failsafe")
+                    }
+                }
+            }
+            pollingTimer = timer
+            RunLoop.main.add(timer, forMode: .eventTracking)
+        }
     }
 
     func stop() {
@@ -10991,6 +11004,8 @@ private final class SidebarDragFailsafeMonitor: ObservableObject {
             NSEvent.removeMonitor(globalMouseMonitor)
             self.globalMouseMonitor = nil
         }
+        pollingTimer?.invalidate()
+        pollingTimer = nil
         onRequestClear = nil
     }
 
@@ -12637,7 +12652,7 @@ private enum TabTitleCompaction {
     private static let vowels: Set<Character> = ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]
 
     static func compacted(_ text: String) -> String {
-        text.split(separator: " ", omittingEmptySubsequences: true).map { word in
+        text.split(whereSeparator: { $0 == " " || $0 == "-" }).map { word in
             let s = String(word)
             guard s.count > 3 else { return s.capitalized }
             let first = s[s.startIndex]
@@ -13382,6 +13397,16 @@ private struct TabItemView: View, Equatable {
                 "desc=\"\(debugCommandPaletteTextPreview(description))\""
             )
 #endif
+            // Defer refresh while a context menu (or any menu) is being tracked
+            // to prevent the submenu from dismissing mid-interaction. The
+            // increment is scheduled for the default run loop mode so it fires
+            // once the menu closes, keeping the sidebar from going stale.
+            if RunLoop.main.currentMode == .eventTracking {
+                RunLoop.main.perform(inModes: [.default]) { [self] in
+                    workspaceObservationGeneration &+= 1
+                }
+                return
+            }
             workspaceObservationGeneration &+= 1
         }
         .onDrag {
