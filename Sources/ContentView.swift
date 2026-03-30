@@ -13397,16 +13397,6 @@ private struct TabItemView: View, Equatable {
                 "desc=\"\(debugCommandPaletteTextPreview(description))\""
             )
 #endif
-            // Defer refresh while a context menu (or any menu) is being tracked
-            // to prevent the submenu from dismissing mid-interaction. The
-            // increment is scheduled for the default run loop mode so it fires
-            // once the menu closes, keeping the sidebar from going stale.
-            if RunLoop.main.currentMode == .eventTracking {
-                RunLoop.main.perform(inModes: [.default]) { [self] in
-                    workspaceObservationGeneration &+= 1
-                }
-                return
-            }
             workspaceObservationGeneration &+= 1
         }
         .onDrag {
