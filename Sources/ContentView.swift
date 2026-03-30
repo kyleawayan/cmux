@@ -9567,7 +9567,7 @@ private final class SidebarDragFailsafeMonitor: ObservableObject {
             }
         }
         if pollingTimer == nil {
-            pollingTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            let timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     if !CGEventSource.buttonState(.combinedSessionState, button: .left) {
@@ -9575,6 +9575,8 @@ private final class SidebarDragFailsafeMonitor: ObservableObject {
                     }
                 }
             }
+            pollingTimer = timer
+            RunLoop.main.add(timer, forMode: .eventTracking)
         }
     }
 
@@ -11948,9 +11950,16 @@ private struct TabItemView: View, Equatable {
                 // row redraws once with the settled state instead of blinking.
                 .debounce(for: Self.workspaceObservationCoalesceInterval, scheduler: RunLoop.main)
         ) { _ in
-            // Skip refresh while a context menu (or any menu) is being tracked
-            // to prevent the submenu from dismissing mid-interaction.
-            if RunLoop.main.currentMode == .eventTracking { return }
+            // Defer refresh while a context menu (or any menu) is being tracked
+            // to prevent the submenu from dismissing mid-interaction. The
+            // increment is scheduled for the default run loop mode so it fires
+            // once the menu closes, keeping the sidebar from going stale.
+            if RunLoop.main.currentMode == .eventTracking {
+                RunLoop.main.perform(inModes: [.default]) { [self] in
+                    workspaceObservationGeneration &+= 1
+                }
+                return
+            }
             workspaceObservationGeneration &+= 1
         }
         .onDrag {
