@@ -41,6 +41,12 @@ xcodebuild -project GhosttyTabs.xcodeproj \
 rm -rf /Applications/cmux-ka.app && cp -R ~/Library/Developer/Xcode/DerivedData/cmux-ka-release/Build/Products/Release/cmux.app /Applications/cmux-ka.app
 ```
 
+## Horizontal Workspace Bar and GIFs
+
+To use the GIFs, you'll need to use the horizontal workspace bar. Go to the cmux settings (not Ghostty settings), then under "Sidebar Appearance", change "Tab Bar Position" to "Bottom".
+
+The GIF selection is under the "Automation" section in the cmux settings.
+
 ## Report Issues
 
 Before reporting an issue here, check https://github.com/manaflow-ai/cmux/issues first, as my fork only does UI changes.
