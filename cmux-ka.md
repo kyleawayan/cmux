@@ -15,7 +15,7 @@ Kyle will most likely pull and handle merge conflicts from upstream at version r
 
 ```bash
 git clone https://github.com/kyleawayan/cmux && cd cmux
-git checkout feat/bottom-tab-bar
+git checkout ka
 ./scripts/setup.sh # will probably fail at building ghostty
 ./scripts/download-prebuilt-ghosttykit.sh # if it failed at building ghostty
 ```
