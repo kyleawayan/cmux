@@ -8664,6 +8664,13 @@ struct VerticalTabsSidebar: View {
     private var workspacePresentationMode = WorkspacePresentationModeSettings.defaultMode.rawValue
     @AppStorage(KeyboardShortcutSettings.Action.selectWorkspaceByNumber.defaultsKey)
     private var selectWorkspaceByNumberShortcutData = Data()
+    @AppStorage("sidebarShowFolderNameOnly") private var sidebarShowFolderNameOnly = false
+    @AppStorage("sidebarCardLineSpacing") private var sidebarCardLineSpacing: Double = 4
+    @AppStorage("sidebarMonoFontName") private var sidebarMonoFontName = ""
+    @AppStorage(ClaudeCodeIntegrationSettings.imageHeightPercentKey)
+    private var claudeCodeImageHeightPercent = ClaudeCodeIntegrationSettings.defaultImageHeightPercent
+    @AppStorage(ClaudeCodeIntegrationSettings.imageAlignmentKey)
+    private var claudeCodeImageAlignment = ClaudeCodeIntegrationSettings.defaultImageAlignment
 
     /// Space at top of sidebar for traffic light buttons
     private let trafficLightPadding: CGFloat = 28
@@ -8753,7 +8760,12 @@ struct VerticalTabsSidebar: View {
                                     dropIndicator: $dropIndicator,
                                     remoteContextMenuWorkspaceIds: remoteContextMenuTargets.map(\.id),
                                     allRemoteContextMenuTargetsConnecting: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .connecting },
-                                    allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected }
+                                    allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected },
+                                    sidebarShowFolderNameOnly: sidebarShowFolderNameOnly,
+                                    sidebarCardLineSpacing: sidebarCardLineSpacing,
+                                    sidebarMonoFontName: sidebarMonoFontName,
+                                    claudeCodeImageHeightPercent: claudeCodeImageHeightPercent,
+                                    claudeCodeImageAlignment: claudeCodeImageAlignment
                                 )
                                 .equatable()
                             }
@@ -8893,6 +8905,13 @@ struct HorizontalTabBar: View {
     private var workspacePresentationMode = WorkspacePresentationModeSettings.defaultMode.rawValue
     @AppStorage(KeyboardShortcutSettings.Action.selectWorkspaceByNumber.defaultsKey)
     private var selectWorkspaceByNumberShortcutData = Data()
+    @AppStorage("sidebarShowFolderNameOnly") private var sidebarShowFolderNameOnly = false
+    @AppStorage("sidebarCardLineSpacing") private var sidebarCardLineSpacing: Double = 4
+    @AppStorage("sidebarMonoFontName") private var sidebarMonoFontName = ""
+    @AppStorage(ClaudeCodeIntegrationSettings.imageHeightPercentKey)
+    private var claudeCodeImageHeightPercent = ClaudeCodeIntegrationSettings.defaultImageHeightPercent
+    @AppStorage(ClaudeCodeIntegrationSettings.imageAlignmentKey)
+    private var claudeCodeImageAlignment = ClaudeCodeIntegrationSettings.defaultImageAlignment
 
     private let tabColumnSpacing: CGFloat = 6
     private let maxTabWidth: CGFloat = 200
@@ -8961,7 +8980,12 @@ struct HorizontalTabBar: View {
                         dropIndicator: $dropIndicator,
                         remoteContextMenuWorkspaceIds: remoteContextMenuTargets.map(\.id),
                         allRemoteContextMenuTargetsConnecting: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .connecting },
-                        allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected }
+                        allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected },
+                        sidebarShowFolderNameOnly: sidebarShowFolderNameOnly,
+                        sidebarCardLineSpacing: sidebarCardLineSpacing,
+                        sidebarMonoFontName: sidebarMonoFontName,
+                        claudeCodeImageHeightPercent: claudeCodeImageHeightPercent,
+                        claudeCodeImageAlignment: claudeCodeImageAlignment
                     )
                     .equatable()
                     .frame(maxWidth: .infinity)
@@ -11200,6 +11224,12 @@ enum SidebarPathFormatter {
         }
         return trimmed
     }
+
+    static func folderName(_ path: String) -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return path }
+        return URL(fileURLWithPath: trimmed, isDirectory: true).lastPathComponent
+    }
 }
 
 enum SidebarWorkspaceShortcutHintMetrics {
@@ -11322,7 +11352,12 @@ private struct TabItemView: View, Equatable {
         lhs.showsModifierShortcutHints == rhs.showsModifierShortcutHints &&
         lhs.remoteContextMenuWorkspaceIds == rhs.remoteContextMenuWorkspaceIds &&
         lhs.allRemoteContextMenuTargetsConnecting == rhs.allRemoteContextMenuTargetsConnecting &&
-        lhs.allRemoteContextMenuTargetsDisconnected == rhs.allRemoteContextMenuTargetsDisconnected
+        lhs.allRemoteContextMenuTargetsDisconnected == rhs.allRemoteContextMenuTargetsDisconnected &&
+        lhs.sidebarShowFolderNameOnly == rhs.sidebarShowFolderNameOnly &&
+        lhs.sidebarCardLineSpacing == rhs.sidebarCardLineSpacing &&
+        lhs.sidebarMonoFontName == rhs.sidebarMonoFontName &&
+        lhs.claudeCodeImageHeightPercent == rhs.claudeCodeImageHeightPercent &&
+        lhs.claudeCodeImageAlignment == rhs.claudeCodeImageAlignment
     }
 
     // Use plain references instead of @EnvironmentObject to avoid subscribing
@@ -11363,6 +11398,11 @@ private struct TabItemView: View, Equatable {
     @AppStorage(SidebarBranchLayoutSettings.key) private var sidebarBranchVerticalLayout = SidebarBranchLayoutSettings.defaultVerticalLayout
     @AppStorage("sidebarShowBranchDirectory") private var sidebarShowBranchDirectory = true
     @AppStorage("sidebarShowGitBranchIcon") private var sidebarShowGitBranchIcon = false
+    let sidebarShowFolderNameOnly: Bool
+    let sidebarCardLineSpacing: Double
+    let sidebarMonoFontName: String
+    let claudeCodeImageHeightPercent: Double
+    let claudeCodeImageAlignment: String
     @AppStorage("sidebarShowPullRequest") private var sidebarShowPullRequest = true
     @AppStorage(BrowserLinkOpenSettings.openSidebarPullRequestLinksInCmuxBrowserKey)
     private var openSidebarPullRequestLinksInCmuxBrowser = BrowserLinkOpenSettings.defaultOpenSidebarPullRequestLinksInCmuxBrowser
@@ -11398,6 +11438,21 @@ private struct TabItemView: View, Equatable {
 
     private var showsLeadingRail: Bool {
         explicitRailColor != nil
+    }
+
+    private var sidebarMonoFont: Font {
+        if sidebarMonoFontName.isEmpty {
+            return .system(size: 10, design: .monospaced)
+        }
+        return .custom(sidebarMonoFontName, size: 10)
+    }
+
+    private var gifNSImageAlignment: NSImageAlignment {
+        switch claudeCodeImageAlignment {
+        case "leading": return .alignBottomLeft
+        case "center": return .alignBottom
+        default: return .alignBottomRight
+        }
     }
 
     /// Resolves the GIF/image path from settings based on the Claude Code status mode.
@@ -11546,7 +11601,7 @@ private struct TabItemView: View, Equatable {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(remoteWorkspaceSidebarText)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(sidebarMonoFont)
                         .foregroundColor(activeSecondaryColor(0.8))
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -11636,7 +11691,7 @@ private struct TabItemView: View, Equatable {
             return pullRequestDisplays(orderedPanelIds: orderedPanelIds)
         }()
 
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: sidebarCardLineSpacing) {
             HStack(spacing: 8) {
                 if unreadCount > 0 {
                     ZStack {
@@ -11807,7 +11862,7 @@ private struct TabItemView: View, Equatable {
                                     HStack(spacing: 3) {
                                         if let branch = line.branch {
                                             Text(branch)
-                                                .font(.system(size: 10, design: .monospaced))
+                                                .font(sidebarMonoFont)
                                                 .foregroundColor(activeSecondaryColor(0.75))
                                                 .lineLimit(1)
                                                 .truncationMode(.tail)
@@ -11820,7 +11875,7 @@ private struct TabItemView: View, Equatable {
                                         }
                                         if let directory = line.directory {
                                             Text(directory)
-                                                .font(.system(size: 10, design: .monospaced))
+                                                .font(sidebarMonoFont)
                                                 .foregroundColor(activeSecondaryColor(0.75))
                                                 .lineLimit(1)
                                                 .truncationMode(.tail)
@@ -11838,7 +11893,7 @@ private struct TabItemView: View, Equatable {
                                 .foregroundColor(activeSecondaryColor(0.6))
                         }
                         Text(dirRow)
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(sidebarMonoFont)
                             .foregroundColor(activeSecondaryColor(0.75))
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -11890,7 +11945,7 @@ private struct TabItemView: View, Equatable {
                     }
                     Spacer(minLength: 0)
                 }
-                .font(.system(size: 10, design: .monospaced))
+                .font(sidebarMonoFont)
                 .foregroundColor(activeSecondaryColor(0.75))
                 .lineLimit(1)
             }
@@ -11908,11 +11963,15 @@ private struct TabItemView: View, Equatable {
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(backgroundColor)
-                .overlay(alignment: .bottomTrailing) {
+                .overlay {
                     if topRail, let gifPath = resolvedStatusImagePath {
-                        AnimatedGIFView(path: gifPath)
-                            .allowsHitTesting(false)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        GeometryReader { geo in
+                            AnimatedGIFView(path: gifPath, imageAlignment: gifNSImageAlignment)
+                                .frame(height: geo.size.height * claudeCodeImageHeightPercent / 100)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        }
+                        .allowsHitTesting(false)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 }
                 .overlay {
@@ -12568,7 +12627,9 @@ private struct TabItemView: View, Equatable {
 
             let directoryText: String? = {
                 guard let directory = entry.directory else { return nil }
-                let shortened = SidebarPathFormatter.shortenedPath(directory, homeDirectoryPath: home)
+                let shortened = sidebarShowFolderNameOnly
+                    ? SidebarPathFormatter.folderName(directory)
+                    : SidebarPathFormatter.shortenedPath(directory, homeDirectoryPath: home)
                 return shortened.isEmpty ? nil : shortened
             }()
 
@@ -12588,7 +12649,9 @@ private struct TabItemView: View, Equatable {
     private func directorySummaryText(orderedPanelIds: [UUID]) -> String? {
         let home = SidebarPathFormatter.homeDirectoryPath
         let entries = tab.sidebarDirectoriesInDisplayOrder(orderedPanelIds: orderedPanelIds).compactMap { directory in
-            let shortened = SidebarPathFormatter.shortenedPath(directory, homeDirectoryPath: home)
+            let shortened = sidebarShowFolderNameOnly
+                ? SidebarPathFormatter.folderName(directory)
+                : SidebarPathFormatter.shortenedPath(directory, homeDirectoryPath: home)
             return shortened.isEmpty ? nil : shortened
         }
         return entries.isEmpty ? nil : entries.joined(separator: " | ")
@@ -14516,11 +14579,12 @@ extension NSColor {
 
 private struct AnimatedGIFView: NSViewRepresentable {
     let path: String
+    var imageAlignment: NSImageAlignment = .alignBottom
 
     func makeNSView(context: Context) -> NSImageView {
         let imageView = NSImageView()
         imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.imageAlignment = .alignBottom
+        imageView.imageAlignment = imageAlignment
         imageView.animates = true
         imageView.canDrawSubviewsIntoLayer = true
         imageView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -14531,7 +14595,8 @@ private struct AnimatedGIFView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSImageView, context: Context) {
-        if context.coordinator.currentPath == path { return }
+        nsView.imageAlignment = imageAlignment
+        guard context.coordinator.currentPath != path else { return }
         loadGIF(into: nsView)
         context.coordinator.currentPath = path
     }

@@ -3816,6 +3816,12 @@ enum ClaudeCodeIntegrationSettings {
     static let needsInputImagePathKey = "claudeCodeNeedsInputImagePath"
     static let defaultImagePath = ""
 
+    static let imageHeightPercentKey = "claudeCodeImageHeightPercent"
+    static let defaultImageHeightPercent: Double = 100
+
+    static let imageAlignmentKey = "claudeCodeImageAlignment"
+    static let defaultImageAlignment = "center"
+
     static func hooksEnabled(defaults: UserDefaults = .standard) -> Bool {
         if defaults.object(forKey: hooksEnabledKey) == nil {
             return defaultHooksEnabled
@@ -3864,6 +3870,13 @@ struct SettingsView: View {
     private let pickerColumnWidth: CGFloat = 196
     private let notificationSoundControlWidth: CGFloat = 280
 
+    private var availableMonospacedFonts: [String] {
+        NSFontManager.shared.availableFontFamilies.filter { family in
+            guard let font = NSFont(name: family, size: 12) else { return false }
+            return font.isFixedPitch
+        }.sorted()
+    }
+
     @AppStorage(LanguageSettings.languageKey) private var appLanguage = LanguageSettings.defaultLanguage.rawValue
     @AppStorage(AppearanceSettings.appearanceModeKey) private var appearanceMode = AppearanceSettings.defaultMode.rawValue
     @AppStorage(AppIconSettings.modeKey) private var appIconMode = AppIconSettings.defaultMode.rawValue
@@ -3878,6 +3891,10 @@ struct SettingsView: View {
     private var claudeCodeIdleImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
     @AppStorage(ClaudeCodeIntegrationSettings.needsInputImagePathKey)
     private var claudeCodeNeedsInputImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
+    @AppStorage(ClaudeCodeIntegrationSettings.imageHeightPercentKey)
+    private var claudeCodeImageHeightPercent = ClaudeCodeIntegrationSettings.defaultImageHeightPercent
+    @AppStorage(ClaudeCodeIntegrationSettings.imageAlignmentKey)
+    private var claudeCodeImageAlignment = ClaudeCodeIntegrationSettings.defaultImageAlignment
     @AppStorage(TelemetrySettings.sendAnonymousTelemetryKey)
     private var sendAnonymousTelemetry = TelemetrySettings.defaultSendAnonymousTelemetry
     @AppStorage("cmuxPortBase") private var cmuxPortBase = 9100
@@ -3926,6 +3943,9 @@ struct SettingsView: View {
     @AppStorage("sidebarSelectionColorHex") private var sidebarSelectionColorHex: String?
     @AppStorage("sidebarNotificationBadgeColorHex") private var sidebarNotificationBadgeColorHex: String?
     @AppStorage("sidebarShowBranchDirectory") private var sidebarShowBranchDirectory = true
+    @AppStorage("sidebarShowFolderNameOnly") private var sidebarShowFolderNameOnly = false
+    @AppStorage("sidebarCardLineSpacing") private var sidebarCardLineSpacing: Double = 4
+    @AppStorage("sidebarMonoFontName") private var sidebarMonoFontName = ""
     @AppStorage("sidebarShowPullRequest") private var sidebarShowPullRequest = true
     @AppStorage(BrowserLinkOpenSettings.openSidebarPullRequestLinksInCmuxBrowserKey)
     private var openSidebarPullRequestLinksInCmuxBrowser = BrowserLinkOpenSettings.defaultOpenSidebarPullRequestLinksInCmuxBrowser
@@ -4872,6 +4892,18 @@ struct SettingsView: View {
                         SettingsCardDivider()
 
                         SettingsCardRow(
+                            String(localized: "settings.app.showFolderNameOnly", defaultValue: "Show Folder Name Only"),
+                            subtitle: String(localized: "settings.app.showFolderNameOnly.subtitle", defaultValue: "Show only the current folder name instead of the full path.")
+                        ) {
+                            Toggle("", isOn: $sidebarShowFolderNameOnly)
+                                .labelsHidden()
+                                .controlSize(.small)
+                        }
+                        .disabled(sidebarHideAllDetails || !sidebarShowBranchDirectory)
+
+                        SettingsCardDivider()
+
+                        SettingsCardRow(
                             String(localized: "settings.app.showPullRequests", defaultValue: "Show Pull Requests in Sidebar"),
                             subtitle: String(localized: "settings.app.showPullRequests.subtitle", defaultValue: "Display review items (PR/MR/etc.) with status, number, and clickable link.")
                         ) {
@@ -4967,6 +4999,39 @@ struct SettingsView: View {
                                 .controlSize(.small)
                         }
                         .disabled(sidebarHideAllDetails)
+                    }
+
+                    SettingsSectionHeader(title: String(localized: "settings.section.cardAppearance", defaultValue: "Card Appearance"))
+                    SettingsCard {
+                        SettingsCardRow(
+                            String(localized: "settings.app.cardLineSpacing", defaultValue: "Card Line Spacing"),
+                            subtitle: String(localized: "settings.app.cardLineSpacing.subtitle", defaultValue: "Vertical spacing between info rows in workspace cards.")
+                        ) {
+                            HStack(spacing: 6) {
+                                Slider(value: $sidebarCardLineSpacing, in: 0...12, step: 1)
+                                    .frame(width: 120)
+                                Text(String(format: "%.0f", sidebarCardLineSpacing))
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .frame(width: 24, alignment: .trailing)
+                            }
+                        }
+
+                        SettingsCardDivider()
+
+                        SettingsCardRow(
+                            String(localized: "settings.app.sidebarMonoFont", defaultValue: "Sidebar Mono Font"),
+                            subtitle: String(localized: "settings.app.sidebarMonoFont.subtitle", defaultValue: "Monospaced font used for branch, directory, and port text.")
+                        ) {
+                            Picker("", selection: $sidebarMonoFontName) {
+                                Text(String(localized: "settings.app.sidebarMonoFont.systemDefault", defaultValue: "System Default")).tag("")
+                                ForEach(availableMonospacedFonts, id: \.self) { name in
+                                    Text(name).font(.custom(name, size: 12)).tag(name)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 160)
+                        }
                     }
 
                     SettingsSectionHeader(title: String(localized: "settings.section.workspaceColors", defaultValue: "Workspace Colors"))
@@ -5317,6 +5382,38 @@ struct SettingsView: View {
                             String(localized: "settings.automation.claudeCode.needsInputImage", defaultValue: "Needs Input GIF/Image"),
                             path: $claudeCodeNeedsInputImagePath
                         )
+
+                        SettingsCardDivider()
+
+                        SettingsCardRow(
+                            String(localized: "settings.automation.claudeCode.imageHeight", defaultValue: "Image Height"),
+                            subtitle: String(localized: "settings.automation.claudeCode.imageHeight.subtitle", defaultValue: "Height of the status image as a percentage of the card.")
+                        ) {
+                            HStack(spacing: 6) {
+                                Slider(value: $claudeCodeImageHeightPercent, in: 10...100, step: 5)
+                                    .frame(width: 120)
+                                Text("\(Int(claudeCodeImageHeightPercent))%")
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .frame(width: 36, alignment: .trailing)
+                            }
+                        }
+
+                        SettingsCardDivider()
+
+                        SettingsCardRow(
+                            String(localized: "settings.automation.claudeCode.imageAlignment", defaultValue: "Image Alignment"),
+                            subtitle: String(localized: "settings.automation.claudeCode.imageAlignment.subtitle", defaultValue: "Horizontal alignment of the status image within the card.")
+                        ) {
+                            Picker("", selection: $claudeCodeImageAlignment) {
+                                Text(String(localized: "settings.automation.claudeCode.imageAlignment.left", defaultValue: "Left")).tag("leading")
+                                Text(String(localized: "settings.automation.claudeCode.imageAlignment.center", defaultValue: "Center")).tag("center")
+                                Text(String(localized: "settings.automation.claudeCode.imageAlignment.right", defaultValue: "Right")).tag("trailing")
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                            .frame(width: 180)
+                        }
 
                         SettingsCardDivider()
 
@@ -5875,6 +5972,8 @@ struct SettingsView: View {
         claudeCodeRunningImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
         claudeCodeIdleImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
         claudeCodeNeedsInputImagePath = ClaudeCodeIntegrationSettings.defaultImagePath
+        claudeCodeImageHeightPercent = ClaudeCodeIntegrationSettings.defaultImageHeightPercent
+        claudeCodeImageAlignment = ClaudeCodeIntegrationSettings.defaultImageAlignment
         sendAnonymousTelemetry = TelemetrySettings.defaultSendAnonymousTelemetry
         browserSearchEngine = BrowserSearchSettings.defaultSearchEngine.rawValue
         browserSearchSuggestionsEnabled = BrowserSearchSettings.defaultSearchSuggestionsEnabled
@@ -5921,6 +6020,9 @@ struct SettingsView: View {
         sidebarSelectionColorHex = nil
         sidebarNotificationBadgeColorHex = nil
         sidebarShowBranchDirectory = true
+        sidebarShowFolderNameOnly = false
+        sidebarCardLineSpacing = 4
+        sidebarMonoFontName = ""
         sidebarShowPullRequest = true
         openSidebarPullRequestLinksInCmuxBrowser = BrowserLinkOpenSettings.defaultOpenSidebarPullRequestLinksInCmuxBrowser
         openSidebarPortLinksInCmuxBrowser = BrowserLinkOpenSettings.defaultOpenSidebarPortLinksInCmuxBrowser
