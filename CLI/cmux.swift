@@ -11243,13 +11243,16 @@ struct CMUXCLI {
             }
 
             let response = try client.send(command: "notify_target \(workspaceId) \(surfaceId) \(payload)")
-            _ = try? setClaudeStatus(
-                client: client,
-                workspaceId: workspaceId,
-                value: "Needs input",
-                icon: "bell.fill",
-                color: "#4C8DFF"
-            )
+            let notificationType = parsedInput.object?["notification_type"] as? String
+            if notificationType == "permission_prompt" || notificationType == "elicitation_dialog" {
+                _ = try? setClaudeStatus(
+                    client: client,
+                    workspaceId: workspaceId,
+                    value: "Needs input",
+                    icon: "bell.fill",
+                    color: "#4C8DFF"
+                )
+            }
             print(response)
 
         case "session-end":
