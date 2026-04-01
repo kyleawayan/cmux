@@ -10285,6 +10285,7 @@ struct HorizontalTabBar: View {
     @Binding var lastSidebarSelectionIndex: Int?
     @StateObject private var modifierKeyMonitor = SidebarShortcutHintModifierMonitor()
     @StateObject private var dragAutoScrollController = SidebarDragAutoScrollController()
+    @StateObject private var dragFailsafeMonitor = SidebarDragFailsafeMonitor()
     @State private var draggedTabId: UUID?
     @State private var dropIndicator: SidebarDropIndicator?
     @AppStorage(SidebarWorkspaceDetailSettings.hideAllDetailsKey)
@@ -10377,6 +10378,48 @@ struct HorizontalTabBar: View {
             Rectangle()
                 .fill(Color(nsColor: .separatorColor))
                 .frame(height: 1)
+        }
+        .onAppear {
+            draggedTabId = nil
+            dropIndicator = nil
+            SidebarDragLifecycleNotification.postStateDidChange(
+                tabId: nil,
+                reason: "sidebar_appear"
+            )
+        }
+        .onDisappear {
+            dragFailsafeMonitor.stop()
+            draggedTabId = nil
+            dropIndicator = nil
+            SidebarDragLifecycleNotification.postStateDidChange(
+                tabId: nil,
+                reason: "sidebar_disappear"
+            )
+        }
+        .onChange(of: draggedTabId) { newDraggedTabId in
+            SidebarDragLifecycleNotification.postStateDidChange(
+                tabId: newDraggedTabId,
+                reason: "drag_state_change"
+            )
+#if DEBUG
+            dlog("sidebar.dragState.horizontalBar tab=\(newDraggedTabId.map { String($0.uuidString.prefix(5)) } ?? "nil")")
+#endif
+            if newDraggedTabId != nil {
+                dragFailsafeMonitor.start {
+                    SidebarDragLifecycleNotification.postClearRequest(reason: $0)
+                }
+                return
+            }
+            dragFailsafeMonitor.stop()
+            dropIndicator = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: SidebarDragLifecycleNotification.requestClear)) { notification in
+            guard draggedTabId != nil else { return }
+            let reason = SidebarDragLifecycleNotification.reason(from: notification)
+#if DEBUG
+            dlog("sidebar.dragClear.horizontalBar tab=\(draggedTabId.map { String($0.uuidString.prefix(5)) } ?? "nil") reason=\(reason)")
+#endif
+            draggedTabId = nil
         }
     }
 }
@@ -10923,7 +10966,6 @@ private final class SidebarDragFailsafeMonitor: ObservableObject {
     private var keyDownMonitor: Any?
     private var localMouseMonitor: Any?
     private var globalMouseMonitor: Any?
-    private var pollingTimer: Timer?
     private var onRequestClear: ((String) -> Void)?
 
     func start(onRequestClear: @escaping (String) -> Void) {
@@ -10971,18 +11013,6 @@ private final class SidebarDragFailsafeMonitor: ObservableObject {
                 }
             }
         }
-        if pollingTimer == nil {
-            let timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    if !CGEventSource.buttonState(.combinedSessionState, button: .left) {
-                        self.requestClearSoon(reason: "polling_failsafe")
-                    }
-                }
-            }
-            pollingTimer = timer
-            RunLoop.main.add(timer, forMode: .eventTracking)
-        }
     }
 
     func stop() {
@@ -11004,8 +11034,6 @@ private final class SidebarDragFailsafeMonitor: ObservableObject {
             NSEvent.removeMonitor(globalMouseMonitor)
             self.globalMouseMonitor = nil
         }
-        pollingTimer?.invalidate()
-        pollingTimer = nil
         onRequestClear = nil
     }
 
