@@ -4091,11 +4091,8 @@ struct SettingsView: View {
     private let notificationSoundControlWidth: CGFloat = 280
     private let shortcutChordsDocsURL = URL(string: "https://cmux.com/docs/keyboard-shortcuts#shortcut-chords")!
 
-    private var availableMonospacedFonts: [String] {
-        NSFontManager.shared.availableFontFamilies.filter { family in
-            guard let font = NSFont(name: family, size: 12) else { return false }
-            return font.isFixedPitch
-        }.sorted()
+    private var availableFonts: [String] {
+        NSFontManager.shared.availableFontFamilies.sorted()
     }
 
     @AppStorage(LanguageSettings.languageKey) private var appLanguage = LanguageSettings.defaultLanguage.rawValue
@@ -4170,7 +4167,7 @@ struct SettingsView: View {
     @AppStorage("sidebarShowBranchDirectory") private var sidebarShowBranchDirectory = true
     @AppStorage("sidebarShowFolderNameOnly") private var sidebarShowFolderNameOnly = false
     @AppStorage("sidebarCardLineSpacing") private var sidebarCardLineSpacing: Double = 4
-    @AppStorage("sidebarMonoFontName") private var sidebarMonoFontName = ""
+    @AppStorage("sidebarMonoFontName") private var sidebarFontName = ""
     @AppStorage("sidebarShowPullRequest") private var sidebarShowPullRequest = true
     @AppStorage(BrowserLinkOpenSettings.openSidebarPullRequestLinksInCmuxBrowserKey)
     private var openSidebarPullRequestLinksInCmuxBrowser = BrowserLinkOpenSettings.defaultOpenSidebarPullRequestLinksInCmuxBrowser
@@ -5260,12 +5257,12 @@ struct SettingsView: View {
                         SettingsCardDivider()
 
                         SettingsCardRow(
-                            String(localized: "settings.app.sidebarMonoFont", defaultValue: "Sidebar Mono Font"),
-                            subtitle: String(localized: "settings.app.sidebarMonoFont.subtitle", defaultValue: "Monospaced font used for branch, directory, and port text.")
+                            String(localized: "settings.app.sidebarMonoFont", defaultValue: "Sidebar Font"),
+                            subtitle: String(localized: "settings.app.sidebarMonoFont.subtitle", defaultValue: "Font used for branch, directory, and port text.")
                         ) {
-                            Picker("", selection: $sidebarMonoFontName) {
+                            Picker("", selection: $sidebarFontName) {
                                 Text(String(localized: "settings.app.sidebarMonoFont.systemDefault", defaultValue: "System Default")).tag("")
-                                ForEach(availableMonospacedFonts, id: \.self) { name in
+                                ForEach(availableFonts, id: \.self) { name in
                                     Text(name).font(.custom(name, size: 12)).tag(name)
                                 }
                             }
@@ -6316,7 +6313,7 @@ struct SettingsView: View {
         sidebarShowBranchDirectory = true
         sidebarShowFolderNameOnly = false
         sidebarCardLineSpacing = 4
-        sidebarMonoFontName = ""
+        sidebarFontName = ""
         sidebarShowPullRequest = true
         openSidebarPullRequestLinksInCmuxBrowser = BrowserLinkOpenSettings.defaultOpenSidebarPullRequestLinksInCmuxBrowser
         openSidebarPortLinksInCmuxBrowser = BrowserLinkOpenSettings.defaultOpenSidebarPortLinksInCmuxBrowser

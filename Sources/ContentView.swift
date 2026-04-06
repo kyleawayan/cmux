@@ -10059,7 +10059,7 @@ struct VerticalTabsSidebar: View {
     private var selectWorkspaceByNumberShortcutData = Data()
     @AppStorage("sidebarShowFolderNameOnly") private var sidebarShowFolderNameOnly = false
     @AppStorage("sidebarCardLineSpacing") private var sidebarCardLineSpacing: Double = 4
-    @AppStorage("sidebarMonoFontName") private var sidebarMonoFontName = ""
+    @AppStorage("sidebarMonoFontName") private var sidebarFontName = ""
     @AppStorage(ClaudeCodeIntegrationSettings.imageHeightPercentKey)
     private var claudeCodeImageHeightPercent = ClaudeCodeIntegrationSettings.defaultImageHeightPercent
     @AppStorage(ClaudeCodeIntegrationSettings.imageAlignmentKey)
@@ -10167,7 +10167,7 @@ struct VerticalTabsSidebar: View {
                                     settings: tabItemSettings,
                                     sidebarShowFolderNameOnly: sidebarShowFolderNameOnly,
                                     sidebarCardLineSpacing: sidebarCardLineSpacing,
-                                    sidebarMonoFontName: sidebarMonoFontName,
+                                    sidebarFontName: sidebarFontName,
                                     claudeCodeImageHeightPercent: claudeCodeImageHeightPercent,
                                     claudeCodeImageAlignment: claudeCodeImageAlignment
                                 )
@@ -10313,7 +10313,7 @@ struct HorizontalTabBar: View {
     private var selectWorkspaceByNumberShortcutData = Data()
     @AppStorage("sidebarShowFolderNameOnly") private var sidebarShowFolderNameOnly = false
     @AppStorage("sidebarCardLineSpacing") private var sidebarCardLineSpacing: Double = 4
-    @AppStorage("sidebarMonoFontName") private var sidebarMonoFontName = ""
+    @AppStorage("sidebarMonoFontName") private var sidebarFontName = ""
     @AppStorage(ClaudeCodeIntegrationSettings.imageHeightPercentKey)
     private var claudeCodeImageHeightPercent = ClaudeCodeIntegrationSettings.defaultImageHeightPercent
     @AppStorage(ClaudeCodeIntegrationSettings.imageAlignmentKey)
@@ -10392,7 +10392,7 @@ struct HorizontalTabBar: View {
                         settings: tabItemSettings,
                         sidebarShowFolderNameOnly: sidebarShowFolderNameOnly,
                         sidebarCardLineSpacing: sidebarCardLineSpacing,
-                        sidebarMonoFontName: sidebarMonoFontName,
+                        sidebarFontName: sidebarFontName,
                         claudeCodeImageHeightPercent: claudeCodeImageHeightPercent,
                         claudeCodeImageAlignment: claudeCodeImageAlignment
                     )
@@ -12759,7 +12759,7 @@ private struct TabItemView: View, Equatable {
         lhs.settings == rhs.settings &&
         lhs.sidebarShowFolderNameOnly == rhs.sidebarShowFolderNameOnly &&
         lhs.sidebarCardLineSpacing == rhs.sidebarCardLineSpacing &&
-        lhs.sidebarMonoFontName == rhs.sidebarMonoFontName &&
+        lhs.sidebarFontName == rhs.sidebarFontName &&
         lhs.claudeCodeImageHeightPercent == rhs.claudeCodeImageHeightPercent &&
         lhs.claudeCodeImageAlignment == rhs.claudeCodeImageAlignment
     }
@@ -12799,7 +12799,7 @@ private struct TabItemView: View, Equatable {
     @State private var rowHeight: CGFloat = 1
     let sidebarShowFolderNameOnly: Bool
     let sidebarCardLineSpacing: Double
-    let sidebarMonoFontName: String
+    let sidebarFontName: String
     let claudeCodeImageHeightPercent: Double
     let claudeCodeImageAlignment: String
 
@@ -12867,11 +12867,11 @@ private struct TabItemView: View, Equatable {
         explicitRailColor != nil
     }
 
-    private var sidebarMonoFont: Font {
-        if sidebarMonoFontName.isEmpty {
+    private var sidebarFont: Font {
+        if sidebarFontName.isEmpty {
             return .system(size: 10, design: .monospaced)
         }
-        return .custom(sidebarMonoFontName, size: 10)
+        return .custom(sidebarFontName, size: 10)
     }
 
     private var gifNSImageAlignment: NSImageAlignment {
@@ -13028,7 +13028,7 @@ private struct TabItemView: View, Equatable {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(remoteWorkspaceSidebarText)
-                        .font(sidebarMonoFont)
+                        .font(sidebarFont)
                         .foregroundColor(activeSecondaryColor(0.8))
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -13289,7 +13289,7 @@ private struct TabItemView: View, Equatable {
                                     HStack(spacing: 3) {
                                         if let branch = line.branch {
                                             Text(branch)
-                                                .font(sidebarMonoFont)
+                                                .font(sidebarFont)
                                                 .foregroundColor(activeSecondaryColor(0.75))
                                                 .lineLimit(1)
                                                 .truncationMode(.tail)
@@ -13302,7 +13302,7 @@ private struct TabItemView: View, Equatable {
                                         }
                                         if let directory = line.directory {
                                             Text(directory)
-                                                .font(sidebarMonoFont)
+                                                .font(sidebarFont)
                                                 .foregroundColor(activeSecondaryColor(0.75))
                                                 .lineLimit(1)
                                                 .truncationMode(.tail)
@@ -13320,7 +13320,7 @@ private struct TabItemView: View, Equatable {
                                 .foregroundColor(activeSecondaryColor(0.6))
                         }
                         Text(dirRow)
-                            .font(sidebarMonoFont)
+                            .font(sidebarFont)
                             .foregroundColor(activeSecondaryColor(0.75))
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -13372,7 +13372,7 @@ private struct TabItemView: View, Equatable {
                     }
                     Spacer(minLength: 0)
                 }
-                .font(sidebarMonoFont)
+                .font(sidebarFont)
                 .foregroundColor(activeSecondaryColor(0.75))
                 .lineLimit(1)
             }

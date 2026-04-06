@@ -8750,7 +8750,7 @@ final class GhosttySurfaceScrollView: NSView {
         imageTransferIndicatorView = NSVisualEffectView(frame: .zero)
         imageTransferIndicatorSpinner = NSProgressIndicator(frame: .zero)
         imageTransferCancelButton = NSButton(frame: .zero)
-        scrollView.hasVerticalScroller = true
+        scrollView.hasVerticalScroller = Self.scrollbarVisible()
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = false
         scrollView.usesPredominantAxisScrolling = true
@@ -9043,6 +9043,15 @@ final class GhosttySurfaceScrollView: NSView {
             queue: nil
         ) { [weak self] _ in
             self?.handlePreferredScrollerStyleChange()
+        })
+
+        observers.append(NotificationCenter.default.addObserver(
+            forName: .ghosttyConfigDidReload,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.scrollView.hasVerticalScroller = Self.scrollbarVisible()
         })
 
     }
@@ -11238,6 +11247,15 @@ final class GhosttySurfaceScrollView: NSView {
         // geometry; the broader reconcile path caused visible content glitches.
         scrollView.tile()
         _ = synchronizeCoreSurface()
+    }
+
+    private static func scrollbarVisible() -> Bool {
+        guard let config = GhosttyApp.shared.config else { return true }
+        var value: UnsafePointer<Int8>?
+        let key = "scrollbar"
+        guard ghostty_config_get(config, &value, key, UInt(key.lengthOfBytes(using: .utf8))),
+              let ptr = value else { return true }
+        return String(cString: ptr) != "never"
     }
 
     private func documentHeight() -> CGFloat {
