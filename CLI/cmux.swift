@@ -12352,7 +12352,7 @@ struct CMUXCLI {
             // (PreToolUse).
             if let claudePid {
                 _ = try? sendV1Command(
-                    "set_agent_pid claude_code \(claudePid) --tab=\(workspaceId)",
+                    "set_agent_pid claude_code \(claudePid) --tab=\(workspaceId) --panel=\(surfaceId)",
                     client: client
                 )
             }

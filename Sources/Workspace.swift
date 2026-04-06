@@ -345,6 +345,7 @@ extension Workspace {
         statusEntries.removeAll()
         agentPIDs.removeAll()
         agentListeningPorts.removeAll()
+        titleSourcePanelId = nil
         logEntries = snapshot.logEntries.map { entry in
             SidebarLogEntry(
                 message: entry.message,
@@ -6623,6 +6624,10 @@ final class Workspace: Identifiable, ObservableObject {
     /// PIDs associated with agent status entries (e.g. claude_code), keyed by status key.
     /// Used for stale-session detection: if the PID is dead, the status entry is cleared.
     var agentPIDs: [String: pid_t] = [:]
+    /// The panel whose terminal title should drive the workspace title even when multiple panels exist.
+    /// Set when an agent (e.g. Claude Code) registers via `set_agent_pid --panel=<uuid>`.
+    /// Cleared when the agent session ends, the panel is removed, or on app restore.
+    var titleSourcePanelId: UUID?
     private var restoredTerminalScrollbackByPanelId: [UUID: String] = [:]
 
     private func sidebarObservationSignal<Value: Equatable>(
@@ -7679,6 +7684,7 @@ final class Workspace: Identifiable, ObservableObject {
         statusEntries.removeAll()
         agentPIDs.removeAll()
         agentListeningPorts.removeAll()
+        titleSourcePanelId = nil
         logEntries.removeAll()
         progress = nil
         gitBranch = nil
@@ -7752,8 +7758,11 @@ final class Workspace: Identifiable, ObservableObject {
             )
         }
 
-        // If this is the only panel and no custom title, update workspace title
-        if panels.count == 1, customTitle == nil {
+        // Sync panel title to workspace title when:
+        // 1. Single panel with no custom title (existing behaviour), OR
+        // 2. This panel is the designated agent title source (e.g. Claude Code) with no custom title
+        let shouldSyncToWorkspace = customTitle == nil && (panels.count == 1 || panelId == titleSourcePanelId)
+        if shouldSyncToWorkspace {
             if self.title != trimmed {
                 self.title = trimmed
                 didMutate = true
@@ -7772,6 +7781,9 @@ final class Workspace: Identifiable, ObservableObject {
         panelCustomTitles = panelCustomTitles.filter { validSurfaceIds.contains($0.key) }
         pinnedPanelIds = pinnedPanelIds.filter { validSurfaceIds.contains($0) }
         manualUnreadPanelIds = manualUnreadPanelIds.filter { validSurfaceIds.contains($0) }
+        if let titleSourcePanelId, !validSurfaceIds.contains(titleSourcePanelId) {
+            self.titleSourcePanelId = nil
+        }
         panelGitBranches = panelGitBranches.filter { validSurfaceIds.contains($0.key) }
         manualUnreadMarkedAt = manualUnreadMarkedAt.filter { validSurfaceIds.contains($0.key) }
         surfaceListeningPorts = surfaceListeningPorts.filter { validSurfaceIds.contains($0.key) }

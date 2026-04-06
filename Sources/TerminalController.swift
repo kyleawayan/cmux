@@ -14726,6 +14726,7 @@ class TerminalController {
         scheduleSidebarMutation(target: target) { controller, tab in
             _ = tab.statusEntries.removeValue(forKey: key)
             if tab.agentPIDs.removeValue(forKey: key) != nil {
+                tab.titleSourcePanelId = nil
                 controller.refreshTrackedAgentPorts(for: tab)
             }
         }
@@ -14733,20 +14734,29 @@ class TerminalController {
     }
 
     /// Register an agent PID for stale-session detection without setting a visible status entry.
-    /// Usage: set_agent_pid <key> <pid> [--tab=<id>]
+    /// Usage: set_agent_pid <key> <pid> [--tab=<id>] [--panel=<uuid>]
+    /// When --panel is provided, that panel's terminal title will drive the workspace title.
     private func setAgentPID(_ args: String) -> String {
         let parsed = parseOptions(args)
         guard parsed.positional.count >= 2,
               let pid = Int32(parsed.positional[1]), pid > 0 else {
-            return "ERROR: Usage: set_agent_pid <key> <pid> [--tab=<id>]"
+            return "ERROR: Usage: set_agent_pid <key> <pid> [--tab=<id>] [--panel=<uuid>]"
         }
         let key = parsed.positional[0]
+        let panelId = parsed.options["panel"].flatMap { UUID(uuidString: $0) }
         let targetResolution = parseSidebarMutationTabTarget(options: parsed.options)
         guard let target = targetResolution.target else {
             return targetResolution.error ?? "ERROR: No tab selected"
         }
         scheduleSidebarMutation(target: target) { controller, tab in
             tab.agentPIDs[key] = pid
+            if let panelId, tab.panels[panelId] != nil {
+                tab.titleSourcePanelId = panelId
+                // Immediately sync the panel's current title to the workspace title
+                if let currentTitle = tab.panelTitles[panelId] {
+                    tab.updatePanelTitle(panelId: panelId, title: currentTitle)
+                }
+            }
             controller.refreshTrackedAgentPorts(for: tab)
         }
         return "OK"
@@ -14764,6 +14774,7 @@ class TerminalController {
         }
         scheduleSidebarMutation(target: target) { controller, tab in
             tab.agentPIDs.removeValue(forKey: key)
+            tab.titleSourcePanelId = nil
             controller.refreshTrackedAgentPorts(for: tab)
         }
         return "OK"
