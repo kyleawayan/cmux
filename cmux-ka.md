@@ -47,6 +47,81 @@ To use the GIFs, you'll need to use the horizontal workspace bar. Go to the cmux
 
 The GIF selection is under the "Automation" section in the cmux settings.
 
+## Known Issues
+
+### White-on-white terminal text
+
+If you have `minimum-contrast` set in `~/.config/ghostty/config`, terminal text will be invisible (white text on white background).
+
+**Workaround:** Comment out or remove the `minimum-contrast` line from your ghostty config.
+
+**Root cause:** A bug in ghostty's `macos-background-from-layer` feature (used by cmux) where the minimum-contrast shader incorrectly sees the background as black instead of white, causing it to force text to white.
+
+---
+
+## Updating to a new upstream release (for Kyle)
+
+1. Sync `manaflow-ai/cmux` main branch with upstream on GitHub
+2. Pull locally and rebase `ka` onto `main`:
+   ```bash
+   git checkout main && git pull
+   git checkout ka
+   git branch ka-pre-rebase-backup  # safety backup
+   git rebase main
+   ```
+3. Resolve conflicts — see [Conflict resolution notes](#conflict-resolution-notes) below
+4. Update submodules:
+   ```bash
+   git submodule update --init --recursive
+   ```
+5. Handle GhosttyKit — the ghostty submodule SHA likely changed. `reload.sh` calls `ensure-ghosttykit.sh` automatically, but if the checksum is missing for the new SHA, download manually:
+   ```bash
+   ./scripts/download-prebuilt-ghosttykit.sh
+   mv GhosttyKit.xcframework ~/.cache/cmux/ghosttykit/<NEW_SHA>/
+   ```
+   Note: `reload.sh` needs sandbox disabled (`dangerouslyDisableSandbox`) to write to `~/.cache`.
+6. Build and verify:
+   ```bash
+   ./scripts/reload.sh --tag ka --launch
+   ```
+7. Force push:
+   ```bash
+   git push origin ka --force-with-lease
+   ```
+
+### Conflict resolution notes
+
+#### Known conflict-prone files
+
+| File                               | Risk                                   | Notes                                                                                                                   |
+| ---------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `Sources/ContentView.swift`        | High — sidebar, tab bar, traffic light | See rules below                                                                                                         |
+| `Sources/TerminalController.swift` | Medium — sidebar mutation              | Use `parseSidebarMutationTabTarget`, not `resolveTabIdForSidebarMutation` (doesn't exist). Keep ka's gif parsing block. |
+| `Sources/cmuxApp.swift`            | Low — app setup                        | Keep both main's additions and ka's additions (different purposes).                                                     |
+
+#### ContentView.swift rules
+
+- **`syncTrafficLightInset`**: combine both conditions — `!isFullScreen` (main) AND `!isSidebarVisibleOnLeft` (ka)
+- **`TabItemView` property decls**: main refactored sidebar `@AppStorage` vars into `SidebarTabItemSettingsSnapshot`. Do NOT re-add ka's old `@AppStorage` vars. Only keep ka's 5 truly new `let` params:
+  - `sidebarShowFolderNameOnly`, `sidebarCardLineSpacing`, `sidebarMonoFontName`, `claudeCodeImageHeightPercent`, `claudeCodeImageAlignment`
+- **`TabItemView ==` function**: add `lhs.settings == rhs.settings &&` (main) plus ka's new field comparisons
+
+#### Post-rebase build check
+
+`HorizontalTabBar` (ka-only view) may need `contextMenuWorkspaceIds:` and `settings:` params if main added them to `TabItemView`. Build first to catch compilation errors.
+
+### CodeRabbit review after rebase
+
+To review only upstream changes + conflict resolutions (not ka's own changes):
+
+```bash
+coderabbit review --base ka-pre-rebase-backup --type committed
+```
+
+If the diff exceeds 150 files, use the `compact-very-large-pr-for-coderabbit` skill. Unstage noisy files: README translations, i18n messages, media, package-lock, submodule pointers, blog pages.
+
+---
+
 ## Report Issues
 
 Before reporting an issue here, check https://github.com/manaflow-ai/cmux/issues first, as my fork only does UI changes.
