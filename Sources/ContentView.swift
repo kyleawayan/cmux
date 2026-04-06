@@ -10300,6 +10300,7 @@ struct HorizontalTabBar: View {
     @StateObject private var modifierKeyMonitor = SidebarShortcutHintModifierMonitor()
     @StateObject private var dragAutoScrollController = SidebarDragAutoScrollController()
     @StateObject private var dragFailsafeMonitor = SidebarDragFailsafeMonitor()
+    @StateObject private var tabItemSettingsStore = SidebarTabItemSettingsStore()
     @State private var draggedTabId: UUID?
     @State private var dropIndicator: SidebarDropIndicator?
     @AppStorage(SidebarWorkspaceDetailSettings.hideAllDetailsKey)
@@ -10340,6 +10341,7 @@ struct HorizontalTabBar: View {
         let workspaceCount = tabManager.tabs.count
         let canCloseWorkspace = workspaceCount > 1
         let workspaceNumberShortcut = self.workspaceNumberShortcut
+        let tabItemSettings = tabItemSettingsStore.snapshot
 
         ZStack {
             SidebarBackdrop()
@@ -10383,9 +10385,11 @@ struct HorizontalTabBar: View {
                         dragAutoScrollController: dragAutoScrollController,
                         draggedTabId: $draggedTabId,
                         dropIndicator: $dropIndicator,
+                        contextMenuWorkspaceIds: Array(selectedContextIds),
                         remoteContextMenuWorkspaceIds: remoteContextMenuTargets.map(\.id),
                         allRemoteContextMenuTargetsConnecting: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .connecting },
                         allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected },
+                        settings: tabItemSettings,
                         sidebarShowFolderNameOnly: sidebarShowFolderNameOnly,
                         sidebarCardLineSpacing: sidebarCardLineSpacing,
                         sidebarMonoFontName: sidebarMonoFontName,
