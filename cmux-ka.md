@@ -118,7 +118,33 @@ To review only upstream changes + conflict resolutions (not ka's own changes):
 coderabbit review --base ka-pre-rebase-backup --type committed
 ```
 
-If the diff exceeds 150 files, use the `compact-very-large-pr-for-coderabbit` skill. Unstage noisy files: README translations, i18n messages, media, package-lock, submodule pointers, blog pages.
+If the diff exceeds 150 files, use the `compact-very-large-pr-for-coderabbit` skill below. Unstage noisy files: README translations, i18n messages, media, package-lock, submodule pointers, blog pages.
+
+```md
+---
+description: Compact a large PR for CodeRabbit CLI review (150 file limit)
+argument-hint: <base-branch>
+---
+
+## Context
+
+- Base branch: `$1`
+- Current branch: !`git branch --show-current`
+- Total files in diff: !`git diff --name-only $1...HEAD | wc -l`
+
+## Instructions
+
+CodeRabbit CLI has a 150-file limit. Deleted files count as "files changed", so large PRs that delete old code hit this limit. This command excludes deleted/noisy files from the review.
+
+1. Create a new branch from the current PR branch (e.g. `coderabbit-review-<current-branch>`)
+2. Soft reset all commits to staged changes: `git reset --soft $1`
+3. Identify which staged files are deletions or vendor noise (e.g. old framework dirs, `.yalc/`, `.sanity-export/`)
+4. Unstage those directories: `git reset HEAD -- <paths>`
+5. Verify remaining staged file count is under 150
+6. Commit the staged files
+7. Run: `coderabbit review --plain -t committed --base $1`
+8. Present the findings grouped by severity
+```
 
 ---
 
