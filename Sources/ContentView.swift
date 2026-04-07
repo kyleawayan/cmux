@@ -13288,11 +13288,17 @@ private struct TabItemView: View, Equatable {
                                 ForEach(Array(branchDirectoryLines.enumerated()), id: \.offset) { _, line in
                                     HStack(spacing: 3) {
                                         if let branch = line.branch {
-                                            Text(branch)
-                                                .font(sidebarFont)
-                                                .foregroundColor(activeSecondaryColor(0.75))
-                                                .lineLimit(1)
-                                                .truncationMode(.tail)
+                                            ViewThatFits {
+                                                Text(branch)
+                                                    .font(sidebarFont)
+                                                    .foregroundColor(activeSecondaryColor(0.75))
+                                                    .lineLimit(1)
+                                                Text(TabTitleCompaction.compacted(branch))
+                                                    .font(sidebarFont)
+                                                    .foregroundColor(activeSecondaryColor(0.75))
+                                                    .lineLimit(1)
+                                            }
+                                            .truncationMode(.tail)
                                         }
                                         if line.branch != nil, line.directory != nil {
                                             Image(systemName: "circle.fill")
@@ -13301,11 +13307,17 @@ private struct TabItemView: View, Equatable {
                                                 .padding(.horizontal, 1)
                                         }
                                         if let directory = line.directory {
-                                            Text(directory)
-                                                .font(sidebarFont)
-                                                .foregroundColor(activeSecondaryColor(0.75))
-                                                .lineLimit(1)
-                                                .truncationMode(.tail)
+                                            ViewThatFits {
+                                                Text(directory)
+                                                    .font(sidebarFont)
+                                                    .foregroundColor(activeSecondaryColor(0.75))
+                                                    .lineLimit(1)
+                                                Text(TabTitleCompaction.compacted(directory))
+                                                    .font(sidebarFont)
+                                                    .foregroundColor(activeSecondaryColor(0.75))
+                                                    .lineLimit(1)
+                                            }
+                                            .truncationMode(.tail)
                                         }
                                     }
                                 }
@@ -13319,11 +13331,17 @@ private struct TabItemView: View, Equatable {
                                 .font(.system(size: 9))
                                 .foregroundColor(activeSecondaryColor(0.6))
                         }
-                        Text(dirRow)
-                            .font(sidebarFont)
-                            .foregroundColor(activeSecondaryColor(0.75))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                        ViewThatFits {
+                            Text(dirRow)
+                                .font(sidebarFont)
+                                .foregroundColor(activeSecondaryColor(0.75))
+                                .lineLimit(1)
+                            Text(TabTitleCompaction.compacted(dirRow))
+                                .font(sidebarFont)
+                                .foregroundColor(activeSecondaryColor(0.75))
+                                .lineLimit(1)
+                        }
+                        .truncationMode(.tail)
                     }
                 }
             }

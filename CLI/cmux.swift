@@ -12516,7 +12516,10 @@ struct CMUXCLI {
             if let consumedSession {
                 let workspaceId = consumedSession.workspaceId
                 _ = try? clearClaudeStatus(client: client, workspaceId: workspaceId)
-                _ = try? sendV1Command("clear_agent_pid claude_code --tab=\(workspaceId)", client: client)
+                _ = try? sendV1Command(
+                    "clear_agent_pid claude_code --tab=\(workspaceId) --panel=\(consumedSession.surfaceId)",
+                    client: client
+                )
                 _ = try? sendV1Command("clear_notifications --tab=\(workspaceId)", client: client)
             }
             print("OK")

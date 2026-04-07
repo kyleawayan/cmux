@@ -14726,7 +14726,6 @@ class TerminalController {
         scheduleSidebarMutation(target: target) { controller, tab in
             _ = tab.statusEntries.removeValue(forKey: key)
             if tab.agentPIDs.removeValue(forKey: key) != nil {
-                tab.titleSourcePanelId = nil
                 controller.refreshTrackedAgentPorts(for: tab)
             }
         }
@@ -14751,7 +14750,8 @@ class TerminalController {
         scheduleSidebarMutation(target: target) { controller, tab in
             tab.agentPIDs[key] = pid
             if let panelId, tab.panels[panelId] != nil {
-                tab.titleSourcePanelId = panelId
+                tab.titleSourcePanelIds.removeAll { $0 == panelId }
+                tab.titleSourcePanelIds.append(panelId)
                 // Immediately sync the panel's current title to the workspace title
                 if let currentTitle = tab.panelTitles[panelId] {
                     tab.updatePanelTitle(panelId: panelId, title: currentTitle)
@@ -14762,19 +14762,29 @@ class TerminalController {
         return "OK"
     }
 
-    /// Unregister an agent PID. Usage: clear_agent_pid <key> [--tab=<id>]
+    /// Unregister an agent PID. Usage: clear_agent_pid <key> [--tab=<id>] [--panel=<uuid>]
+    /// When --panel is provided, only that panel is removed from the title source stack.
     private func clearAgentPID(_ args: String) -> String {
         let parsed = parseOptions(args)
         guard let key = parsed.positional.first else {
-            return "ERROR: Usage: clear_agent_pid <key> [--tab=<id>]"
+            return "ERROR: Usage: clear_agent_pid <key> [--tab=<id>] [--panel=<uuid>]"
         }
+        let panelId = parsed.options["panel"].flatMap { UUID(uuidString: $0) }
         let targetResolution = parseSidebarMutationTabTarget(options: parsed.options)
         guard let target = targetResolution.target else {
             return targetResolution.error ?? "ERROR: No tab selected"
         }
         scheduleSidebarMutation(target: target) { controller, tab in
             tab.agentPIDs.removeValue(forKey: key)
-            tab.titleSourcePanelId = nil
+            if let panelId {
+                tab.titleSourcePanelIds.removeAll { $0 == panelId }
+            } else {
+                tab.titleSourcePanelIds.removeAll()
+            }
+            // Re-sync to the previous title source if one remains
+            if let newSource = tab.titleSourcePanelIds.last, let currentTitle = tab.panelTitles[newSource] {
+                tab.updatePanelTitle(panelId: newSource, title: currentTitle)
+            }
             controller.refreshTrackedAgentPorts(for: tab)
         }
         return "OK"
