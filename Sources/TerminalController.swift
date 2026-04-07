@@ -14749,12 +14749,16 @@ class TerminalController {
         }
         scheduleSidebarMutation(target: target) { controller, tab in
             tab.agentPIDs[key] = pid
-            if let panelId, tab.panels[panelId] != nil {
-                tab.titleSourcePanelIds.removeAll { $0 == panelId }
-                tab.titleSourcePanelIds.append(panelId)
+            // Resolve surface UUID (CMUX_SURFACE_ID) to panel ID — they are different UUIDs.
+            let resolvedPanelId = panelId.flatMap { id in
+                tab.panels[id] != nil ? id : tab.panelIdFromSurfaceUUID(id)
+            }
+            if let resolvedPanelId {
+                tab.titleSourcePanelIds.removeAll { $0 == resolvedPanelId }
+                tab.titleSourcePanelIds.append(resolvedPanelId)
                 // Immediately sync the panel's current title to the workspace title
-                if let currentTitle = tab.panelTitles[panelId] {
-                    tab.updatePanelTitle(panelId: panelId, title: currentTitle)
+                if let currentTitle = tab.panelTitles[resolvedPanelId] {
+                    tab.updatePanelTitle(panelId: resolvedPanelId, title: currentTitle)
                 }
             }
             controller.refreshTrackedAgentPorts(for: tab)
@@ -14776,8 +14780,12 @@ class TerminalController {
         }
         scheduleSidebarMutation(target: target) { controller, tab in
             tab.agentPIDs.removeValue(forKey: key)
-            if let panelId {
-                tab.titleSourcePanelIds.removeAll { $0 == panelId }
+            // Resolve surface UUID to panel ID before removing from stack.
+            let resolvedPanelId = panelId.flatMap { id in
+                tab.titleSourcePanelIds.contains(id) ? id : tab.panelIdFromSurfaceUUID(id)
+            }
+            if let resolvedPanelId {
+                tab.titleSourcePanelIds.removeAll { $0 == resolvedPanelId }
             } else {
                 tab.titleSourcePanelIds.removeAll()
             }

@@ -7082,6 +7082,12 @@ final class Workspace: Identifiable, ObservableObject {
         surfaceIdToPanelId[surfaceId]
     }
 
+    /// Resolve a raw UUID (e.g. from CMUX_SURFACE_ID via CLI) to a panel ID.
+    /// The CLI passes the bonsplit surface UUID; this maps it to the internal panel UUID.
+    func panelIdFromSurfaceUUID(_ uuid: UUID) -> UUID? {
+        surfaceIdToPanelId[TabID(uuid: uuid)]
+    }
+
     func markExplicitClose(surfaceId: TabID) {
         explicitUserCloseTabIds.insert(surfaceId)
     }
@@ -7781,7 +7787,13 @@ final class Workspace: Identifiable, ObservableObject {
         panelCustomTitles = panelCustomTitles.filter { validSurfaceIds.contains($0.key) }
         pinnedPanelIds = pinnedPanelIds.filter { validSurfaceIds.contains($0) }
         manualUnreadPanelIds = manualUnreadPanelIds.filter { validSurfaceIds.contains($0) }
+        let titleSourceCountBefore = titleSourcePanelIds.count
         titleSourcePanelIds.removeAll { !validSurfaceIds.contains($0) }
+        if titleSourcePanelIds.count < titleSourceCountBefore,
+           let newSource = titleSourcePanelIds.last,
+           let currentTitle = panelTitles[newSource] {
+            updatePanelTitle(panelId: newSource, title: currentTitle)
+        }
         panelGitBranches = panelGitBranches.filter { validSurfaceIds.contains($0.key) }
         manualUnreadMarkedAt = manualUnreadMarkedAt.filter { validSurfaceIds.contains($0.key) }
         surfaceListeningPorts = surfaceListeningPorts.filter { validSurfaceIds.contains($0.key) }
